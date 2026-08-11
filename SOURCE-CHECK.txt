@@ -1,0 +1,9 @@
+AVENA quotation PWA v2.2.0 source verification
+
+- 22 TypeScript files were syntax/transpile checked after the safety upgrade.
+- HTML templates were scanned for accidental delimiter imbalance.
+- Final locking/revision logic, automatic local-folder backup logic and pre-PDF validation were added without changing the quotation layout/calculation formulas.
+- Existing version-1 avena-data.json files remain supported; Final quotations are normalized as locked on load.
+- `downlevelIteration` is not present in tsconfig.json.
+- Full Angular production compilation was not run in this sandbox because its npm registry does not provide the Angular 22 packages required by the project.
+- Run `npm install` and `npm run build:pwa` on the target computer before Netlify deployment.

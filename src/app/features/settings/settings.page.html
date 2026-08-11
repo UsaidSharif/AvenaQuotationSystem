@@ -1,0 +1,40 @@
+<section class="page-heading"><div><h1>Company & Defaults</h1><p>These details are reused in the standard Avena quotation and proforma invoice.</p></div></section>
+@if (savedMessage()) { <div class="notice success saved">{{ savedMessage() }}</div> }
+<div class="grid two settings-grid">
+  <form class="card" [formGroup]="companyForm" (ngSubmit)="saveCompany()">
+    <div class="card-header"><div><h2>Company profile</h2><span class="muted">Printed on client documents</span></div></div>
+    <div class="card-body form-grid">
+      <div class="field full"><label>Legal company name *</label><input formControlName="legalName"></div>
+      <div class="field"><label>Trading name</label><input formControlName="tradingName"></div><div class="field"><label>Tagline</label><input formControlName="tagline"></div>
+      <div class="field full"><label>Registered office</label><textarea rows="3" formControlName="address"></textarea></div>
+      <div class="field full"><label>Processing facility</label><textarea rows="3" formControlName="processingFacility"></textarea></div>
+      <div class="field"><label>City / country</label><input formControlName="cityCountry"></div><div class="field"><label>Phone / WhatsApp</label><input formControlName="phone"></div>
+      <div class="field"><label>Email</label><input type="email" formControlName="email"></div><div class="field"><label>Website</label><input formControlName="website"></div>
+      <div class="field"><label>NTN</label><input formControlName="ntn"></div><div class="field"><label>STRN</label><input formControlName="strn"></div>
+      <div class="field"><label>SECP registration</label><input formControlName="secpRegistration"></div><div class="field"><label>REX ID</label><input formControlName="rexId"></div>
+      <div class="field"><label>Pakistan Single Window ID</label><input formControlName="pswId"></div>
+      <div class="field"><label>Authorized name</label><input formControlName="authorizedSignatory"></div><div class="field"><label>Designation</label><input formControlName="authorizedDesignation"></div>
+    </div>
+    <div class="subsection"><h3>Beneficiary bank details</h3><span class="muted">Used on Proforma Invoice only</span></div>
+    <div class="card-body form-grid bank-fields">
+      <div class="field full"><label>Bank name</label><input formControlName="bankName"></div><div class="field"><label>Branch</label><input formControlName="bankBranch"></div><div class="field"><label>SWIFT code</label><input formControlName="swiftCode"></div>
+      <div class="field full"><label>Account / IBAN</label><input formControlName="accountIban"></div><div class="field full"><label>Bank address</label><textarea rows="2" formControlName="bankAddress"></textarea></div>
+    </div>
+    <div class="form-actions"><button class="button primary" type="submit">Save company details</button></div>
+  </form>
+
+  <form class="card defaults-card" [formGroup]="defaultsForm" (ngSubmit)="saveDefaults()">
+    <div class="card-header"><div><h2>Default quotation settings</h2><span class="muted">Automatically loaded into new quotations</span></div></div>
+    <div class="card-body form-grid">
+      <div class="field"><label>Spot PKR per USD</label><input type="number" step="0.01" formControlName="spotExchangeRate"></div><div class="field"><label>FX safety buffer %</label><input type="number" step="0.1" formControlName="fxBufferPercent"></div>
+      <div class="field"><label>Minimum profit %</label><input type="number" step="0.1" formControlName="minimumProfitPercent"></div><div class="field"><label>Target profit %</label><input type="number" step="0.1" formControlName="targetProfitPercent"></div>
+      <div class="field"><label>Premium profit %</label><input type="number" step="0.1" formControlName="premiumProfitPercent"></div><div class="field"><label>Contingency %</label><input type="number" step="0.1" formControlName="contingencyPercent"></div>
+      <div class="field"><label>Bank/payment cost %</label><input type="number" step="0.1" formControlName="bankCostPercent"></div><div class="field"><label>Round USD/MT to</label><input type="number" step="0.01" formControlName="priceRoundingUsdPerMt"></div>
+      <div class="field"><label>Quotation validity days</label><input type="number" formControlName="defaultValidityDays"></div><div class="field"><label>Shipment period days</label><input type="number" formControlName="defaultShipmentDays"></div>
+      <div class="field"><label>Default net MT — 20'</label><input type="number" step="0.1" formControlName="defaultNetMt20Ft"></div><div class="field"><label>Default net MT — 40'</label><input type="number" step="0.1" formControlName="defaultNetMt40Ft"></div>
+      <div class="field full"><label>First export quotation sequence number</label><input type="number" formControlName="exportQuoteSequenceStart"><small>Used when there are no existing AAF-EQ quotation numbers. Default: 1010.</small></div>
+    </div>
+    <div class="notice warning settings-note">These are defaults only. Every quotation can override them without changing this page.</div>
+    <div class="form-actions"><button class="button primary" type="submit">Save default settings</button></div>
+  </form>
+</div>

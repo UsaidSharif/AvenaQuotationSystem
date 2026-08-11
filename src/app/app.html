@@ -1,0 +1,90 @@
+@if (!store.dataFileConnected()) {
+  <main class="file-gate">
+    <section class="file-gate-card">
+      <div class="file-gate-brand">
+        <div class="brand-mark large">A</div>
+        <div><strong>AVENA</strong><span>Quotation System</span></div>
+      </div>
+
+      <div class="file-gate-copy">
+        <span class="eyebrow">LOCAL FILE MODE</span>
+        <h1>Open your Avena data file</h1>
+        <p>All business records are read from and saved directly to one JSON file on this computer. No quotations, buyers, prices or settings are stored in IndexedDB or localStorage.</p>
+      </div>
+
+      @if (!store.fileApiSupported()) {
+        <div class="notice danger">
+          Direct file access is unavailable here. Use current Chrome or Edge and open the app from your Netlify HTTPS address (or localhost).
+        </div>
+      }
+      @if (fileMessage()) { <div class="notice success">{{ fileMessage() }}</div> }
+      @if (fileError()) { <div class="notice danger">{{ fileError() }}</div> }
+
+      <div class="file-actions">
+        <button class="button primary file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="openDataFile()">
+          <strong>Open existing data file</strong>
+          <span>Select your existing avena-data.json</span>
+        </button>
+        <button class="button file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="createDataFile()">
+          <strong>Create new data file</strong>
+          <span>Choose where to save avena-data.json</span>
+        </button>
+      </div>
+
+      <div class="file-location-tip">
+        <strong>Recommended location</strong>
+        <code>Documents\Avena Quotation System\avena-data.json</code>
+        <small>Because no browser database is used, select this file again whenever you reopen or refresh the app.</small>
+      </div>
+    </section>
+  </main>
+} @else {
+  <div class="app-shell" [class.menu-open]="menuOpen()">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">A</div>
+        <div><strong>AVENA</strong><span>Quotation System</span></div>
+      </div>
+
+      <nav (click)="closeMenu()">
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">⌂ <span>Dashboard</span></a>
+        <a routerLink="/quotes/new" routerLinkActive="active">＋ <span>New Quotation</span></a>
+        <a routerLink="/quotes" routerLinkActive="active">▤ <span>Quotations</span></a>
+        <a routerLink="/master-data" routerLinkActive="active">▦ <span>Master Data</span></a>
+        <a routerLink="/settings" routerLinkActive="active">⚙ <span>Company & Defaults</span></a>
+        <a routerLink="/backup" routerLinkActive="active">⇩ <span>Data File & Backups</span></a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="connection" [class.offline]="!online()">● {{ online() ? 'Online' : 'Offline mode' }}</span>
+        <small class="data-file-name">{{ store.dataFileName() }}</small>
+        <small>Business data is saved to this computer file.</small>
+      </div>
+    </aside>
+
+    <div class="main-area">
+      <header class="topbar no-print">
+        <button class="menu-button" type="button" (click)="toggleMenu()">☰</button>
+        <div>
+          <strong>{{ store.company().tradingName }}</strong>
+          <span>{{ store.dataFileName() }} · local data file</span>
+        </div>
+        <div class="topbar-actions">
+          @if (store.automaticBackupConfigured()) { <span class="backup-status enabled">✓ Auto backup</span> } @else { <a class="backup-status" routerLink="/backup">Auto backup off</a> }
+          <a class="button primary compact" routerLink="/quotes/new">New Quote</a>
+        </div>
+      </header>
+
+      @if (pwaUpdate.updateAvailable()) {
+        <div class="update-banner no-print">
+          A newer version is available.
+          <button type="button" (click)="pwaUpdate.activate()">Update now</button>
+        </div>
+      }
+
+      <main class="page-container"><router-outlet /></main>
+    </div>
+
+    @if (menuOpen()) { <button class="menu-backdrop" type="button" aria-label="Close menu" (click)="closeMenu()"></button> }
+  </div>
+}

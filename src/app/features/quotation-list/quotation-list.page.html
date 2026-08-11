@@ -1,0 +1,31 @@
+<section class="page-heading">
+  <div><h1>Quotations</h1><p>Search, duplicate, print and update the status of saved quotations.</p></div>
+  <a class="button primary" routerLink="/quotes/new">＋ New quotation</a>
+</section>
+
+<section class="card filters">
+  <div class="field"><label>Search</label><input [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Quote number, buyer, country or product"></div>
+  <div class="field"><label>Status</label><select [ngModel]="status()" (ngModelChange)="status.set($event)">@for (item of statuses; track item) {<option [value]="item">{{ item }}</option>}</select></div>
+</section>
+
+<section class="card list-card">
+  @if (filtered().length) {
+    <div class="table-wrap"><table>
+      <thead><tr><th>Quotation</th><th>Buyer / product</th><th>Shipment</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        @for (quote of filtered(); track quote.id) {
+          <tr>
+            <td><strong>{{ quote.quoteNumber }}</strong> <span class="revision-badge">Rev {{ quote.document.revisionNo }}</span>@if (store.isQuotationLocked(quote)) { <span class="lock-badge">🔒 Final</span> }<br><small>{{ quote.input.quoteDate | date:'dd MMM yyyy' }}</small></td>
+            <td><strong>{{ quote.snapshots.buyer.companyName }}</strong><br><small>{{ quote.snapshots.product.variety }} {{ quote.snapshots.product.process }} — {{ quote.snapshots.buyer.country }}</small></td>
+            <td>{{ quote.input.containers }} × {{ quote.input.containerType }}<br><small>{{ quote.calculation.loading.totalNetMt }} MT · {{ quote.input.tradeTerm }}</small></td>
+            <td><strong>{{ quote.calculation.quotedPriceUsdPerMt | currency:'USD' }}/MT</strong><br><small>Total {{ quote.calculation.invoiceTotalUsd | currency:'USD':'symbol':'1.0-0' }}</small></td>
+            <td><select class="status-select" [ngModel]="quote.status" (ngModelChange)="changeStatus(quote.id, $event)"><option>Draft</option><option>Sent</option><option>Under Negotiation</option><option>Accepted</option><option>Rejected</option><option>Expired</option></select></td>
+            <td><div class="row-actions"><a class="button compact" [routerLink]="['/quotes', quote.id, 'print']">Preview</a><a class="button compact" [routerLink]="['/quotes', quote.id, 'edit']">{{ store.isQuotationLocked(quote) ? 'New revision' : 'Edit' }}</a><button class="button compact" type="button" (click)="duplicate(quote.id)">Duplicate</button>@if (!store.isQuotationLocked(quote)) { <button class="button compact danger" type="button" (click)="remove(quote.id)">Delete</button> }</div></td>
+          </tr>
+        }
+      </tbody>
+    </table></div>
+  } @else {
+    <div class="empty-state"><h3>No matching quotations</h3><p>Create a new quotation or change the filters.</p></div>
+  }
+</section>

@@ -1,0 +1,49 @@
+<section class="page-heading">
+  <div><h1>Quotation Dashboard</h1><p>Create quotations, monitor negotiations and keep supplier rates organized.</p></div>
+  <a class="button primary" routerLink="/quotes/new">＋ Create quotation</a>
+</section>
+
+<div class="grid four kpis">
+  <app-stat-card icon="▤" label="Saved quotations" [value]="store.quoteCount()" />
+  <app-stat-card icon="✓" label="Accepted quotations" [value]="accepted().length" />
+  <app-stat-card icon="↔" label="Under negotiation" [value]="negotiation()" />
+  <app-stat-card icon="%" label="Average gross margin" [value]="(averageMargin() | number:'1.1-1') + '%'" />
+</div>
+
+<div class="grid two dashboard-grid">
+  <section class="card">
+    <div class="card-header"><div><h2>Recent quotations</h2><span class="muted">Latest saved work</span></div><a routerLink="/quotes">View all</a></div>
+    @if (recent().length) {
+      <div class="table-wrap"><table>
+        <thead><tr><th>Quote</th><th>Buyer</th><th>Value</th><th>Status</th></tr></thead>
+        <tbody>
+          @for (quote of recent(); track quote.id) {
+            <tr>
+              <td><a [routerLink]="['/quotes', quote.id, 'print']"><strong>{{ quote.quoteNumber }}</strong></a><br><small>{{ quote.input.quoteDate | date:'dd MMM yyyy' }}</small></td>
+              <td>{{ quote.snapshots.buyer.companyName }}<br><small>{{ quote.snapshots.product.variety }} {{ quote.snapshots.product.process }}</small></td>
+              <td>{{ quote.calculation.invoiceTotalUsd | currency:'USD':'symbol':'1.0-0' }}</td>
+              <td><span class="badge" [class.success]="quote.status === 'Accepted'" [class.warning]="quote.status === 'Under Negotiation'">{{ quote.status }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table></div>
+    } @else {
+      <div class="empty-state"><h3>No quotations yet</h3><p>Your saved quotations will appear here.</p><a class="button primary" routerLink="/quotes/new">Create the first quotation</a></div>
+    }
+  </section>
+
+  <section class="card quick-start">
+    <div class="card-header"><h2>Before your first quotation</h2></div>
+    <div class="card-body checklist">
+      <a routerLink="/settings"><span>1</span><div><strong>Complete company details</strong><small>Address, contact details and bank information.</small></div></a>
+      <a routerLink="/master-data"><span>2</span><div><strong>Update mill and packing prices</strong><small>Replace all zero demo rates with actual values.</small></div></a>
+      <a routerLink="/master-data"><span>3</span><div><strong>Enter current freight</strong><small>Use the exact destination port and rate validity.</small></div></a>
+      <a routerLink="/backup"><span>4</span><div><strong>Download regular backups</strong><small>Offline data is stored only on this browser.</small></div></a>
+    </div>
+  </section>
+</div>
+
+<div class="grid two totals">
+  <section class="card card-body"><div class="kpi-label">Total quoted value</div><div class="kpi-value">{{ totalValue() | currency:'USD':'symbol':'1.0-0' }}</div></section>
+  <section class="card card-body"><div class="kpi-label">Accepted value</div><div class="kpi-value">{{ acceptedValue() | currency:'USD':'symbol':'1.0-0' }}</div></section>
+</div>

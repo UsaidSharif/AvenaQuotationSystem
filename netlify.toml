@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build:pwa"
+  publish = "dist/avena-quotation-pwa/browser"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

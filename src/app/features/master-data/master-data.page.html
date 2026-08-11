@@ -1,0 +1,100 @@
+<section class="page-heading"><div><h1>Master Data</h1><p>Maintain products, mill prices, packaging, logistics, agents and buyers.</p></div></section>
+@if (message()) { <div class="notice success save-message">{{ message() }}</div> }
+<section class="card">
+  <div class="tabs">
+    <button [class.active]="active() === 'products'" (click)="setTab('products')">Products</button>
+    <button [class.active]="active() === 'suppliers'" (click)="setTab('suppliers')">Supplier Prices</button>
+    <button [class.active]="active() === 'packaging'" (click)="setTab('packaging')">Packaging</button>
+    <button [class.active]="active() === 'logistics'" (click)="setTab('logistics')">Logistics</button>
+    <button [class.active]="active() === 'agents'" (click)="setTab('agents')">Agents</button>
+    <button [class.active]="active() === 'buyers'" (click)="setTab('buyers')">Buyers</button>
+  </div>
+
+  @if (active() === 'products') {
+    <div class="card-header"><div><h2>Rice products and full export specifications</h2><span class="muted">These fields populate Annex A automatically.</span></div><button class="button primary" (click)="addProduct()">＋ Product</button></div>
+    <div class="records-grid">
+      @for (item of store.products(); track item.id) {
+        <article class="record-card">
+          <div class="record-heading"><div><strong>{{ item.code }} — {{ item.variety || 'New product' }}</strong><span>{{ item.process }}</span></div><div class="row-actions"><button class="button compact" (click)="saved(store.saveProduct(item))">Save</button><button class="button compact danger" (click)="remove('product', item.id)">Delete</button></div></div>
+          <div class="form-grid three">
+            <div class="field"><label>Product code</label><input [(ngModel)]="item.code"></div><div class="field"><label>Commodity</label><input [(ngModel)]="item.commodity"></div><div class="field"><label>Origin</label><input [(ngModel)]="item.origin"></div>
+            <div class="field full"><label>Product / variety</label><input [(ngModel)]="item.variety"></div><div class="field full"><label>Processing</label><input [(ngModel)]="item.process"></div>
+            <div class="field"><label>Broken % maximum</label><input type="number" step="0.01" [(ngModel)]="item.brokenPercent"></div><div class="field"><label>Average grain length mm</label><input type="number" step="0.01" [(ngModel)]="item.aglMm"></div><div class="field"><label>Moisture % maximum</label><input type="number" step="0.01" [(ngModel)]="item.moistureMaxPercent"></div>
+            <div class="field"><label>Yellow grains % maximum</label><input type="number" step="0.01" [(ngModel)]="item.yellowGrainsMaxPercent"></div><div class="field"><label>Damaged / discoloured % maximum</label><input type="number" step="0.01" [(ngModel)]="item.damagedDiscolouredMaxPercent"></div><div class="field"><label>Paddy grains %</label><input type="number" step="0.01" [(ngModel)]="item.paddyGrainsPercent"></div>
+            <div class="field"><label>Chalky grains % maximum</label><input type="number" step="0.01" [(ngModel)]="item.chalkyGrainsMaxPercent"></div><div class="field"><label>Foreign matter %</label><input type="number" step="0.01" [(ngModel)]="item.foreignMatterPercent"></div><div class="field"><label>Other varieties / admixture % max</label><input type="number" step="0.01" [(ngModel)]="item.otherVarietiesAdmixtureMaxPercent"></div>
+            <div class="field"><label>Sortex status</label><input [(ngModel)]="item.sortexStatus"></div><div class="field"><label>Milling degree / polish</label><input [(ngModel)]="item.millingDegreePolish"></div><div class="field"><label>Sampling basis</label><input [(ngModel)]="item.samplingBasis"></div>
+            <div class="field full"><label>GMO status</label><input [(ngModel)]="item.gmoStatus"></div><div class="field"><label>Reference sample</label><input [(ngModel)]="item.referenceSample"></div><div class="field"><label>Crop year</label><input [(ngModel)]="item.cropYear"></div><div class="field"><label>HS code</label><input [(ngModel)]="item.hsCode"></div>
+            <div class="field full"><label>Internal notes</label><textarea rows="2" [(ngModel)]="item.notes"></textarea></div>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  @if (active() === 'suppliers') {
+    <div class="card-header"><div><h2>Supplier and mill prices</h2><span class="muted">Update whenever AL-Saeed or another mill changes price.</span></div><button class="button primary" (click)="addSupplier()">＋ Supplier price</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Supplier</th><th>Product</th><th>Rice PKR/MT</th><th>Processing</th><th>Other</th><th>Stock MT</th><th>Valid to</th><th></th></tr></thead><tbody>
+      @for (item of store.supplierPrices(); track item.id) {<tr>
+        <td><input class="table-input" [(ngModel)]="item.supplierName"></td><td><select class="table-input" [(ngModel)]="item.productId">@for (product of store.products(); track product.id) {<option [value]="product.id">{{ product.code }} — {{ product.variety }}</option>}</select></td>
+        <td><input class="table-input" type="number" [(ngModel)]="item.ricePricePkrPerMt"></td><td><input class="table-input" type="number" [(ngModel)]="item.processingPkrPerMt"></td><td><input class="table-input" type="number" [(ngModel)]="item.otherPkrPerMt"></td>
+        <td><input class="table-input small" type="number" [(ngModel)]="item.stockMt"></td><td><input class="table-input" type="date" [(ngModel)]="item.validTo"></td><td class="row-actions"><button class="button compact" (click)="saved(store.saveSupplierPrice(item))">Save</button><button class="button compact danger" (click)="remove('supplier', item.id)">Delete</button></td>
+      </tr>}</tbody></table></div>
+  }
+
+  @if (active() === 'packaging') {
+    <div class="card-header"><div><h2>Packaging rates, dimensions & marking</h2><span class="muted">Calculation fields control loading; document fields populate Annex A.</span></div><button class="button primary" (click)="addPackaging()">＋ Packaging</button></div>
+    <div class="records-grid">
+      @for (item of store.packaging(); track item.id) {
+        <article class="record-card">
+          <div class="record-heading"><div><strong>{{ item.code }}</strong><span>{{ item.description }}</span></div><div class="row-actions"><button class="button compact" (click)="saved(store.savePackaging(item))">Save</button><button class="button compact danger" (click)="remove('packaging', item.id)">Delete</button></div></div>
+          <div class="form-grid three">
+            <div class="field"><label>Code</label><input [(ngModel)]="item.code"></div><div class="field full"><label>Description</label><input [(ngModel)]="item.description"></div><div class="field"><label>Bag type</label><input [(ngModel)]="item.bagType"></div>
+            <div class="field"><label>Bag size kg</label><input type="number" step="0.01" [(ngModel)]="item.retailBagKg"></div><div class="field"><label>Bags / carton</label><input type="number" [(ngModel)]="item.bagsPerCarton"></div><div class="field"><label>Carton net kg</label><input type="number" step="0.01" [(ngModel)]="item.cartonNetKg"></div>
+            <div class="field"><label>Approx. gross weight kg</label><input type="number" step="0.01" [(ngModel)]="item.approxGrossWeightKg"></div><div class="field"><label>Bag rate PKR</label><input type="number" [(ngModel)]="item.bagRatePkr"></div><div class="field"><label>Carton rate PKR</label><input type="number" [(ngModel)]="item.cartonRatePkr"></div>
+            <div class="field"><label>Bag tare grams</label><input type="number" [(ngModel)]="item.bagTareGrams"></div><div class="field"><label>Carton tare kg</label><input type="number" step="0.01" [(ngModel)]="item.cartonTareKg"></div><div class="field"><label>Valid to</label><input type="date" [(ngModel)]="item.validTo"></div>
+            <div class="field"><label>Length cm</label><input type="number" step="0.1" [(ngModel)]="item.lengthCm"></div><div class="field"><label>Width cm</label><input type="number" step="0.1" [(ngModel)]="item.widthCm"></div><div class="field"><label>Height cm</label><input type="number" step="0.1" [(ngModel)]="item.heightCm"></div>
+            <div class="field full"><label>Printing</label><input [(ngModel)]="item.printing"></div><div class="field"><label>Artwork reference</label><input [(ngModel)]="item.artworkReference"></div><div class="field full"><label>Artwork approval</label><input [(ngModel)]="item.artworkApproval"></div>
+            <div class="field"><label>Closure</label><input [(ngModel)]="item.closure"></div><div class="field full"><label>Palletization</label><input [(ngModel)]="item.palletization"></div><div class="field full"><label>Cylinder / plate charges</label><input [(ngModel)]="item.cylinderPlateCharges"></div>
+            <div class="field full"><label>Special packing notes</label><input [(ngModel)]="item.specialPackingNotes"></div><div class="field full"><label>Packing cost basis</label><input [(ngModel)]="item.packingCostBasis"></div><div class="field"><label>Supplier</label><input [(ngModel)]="item.supplier"></div>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  @if (active() === 'logistics') {
+    <div class="card-header"><div><h2>Logistics lanes and freight</h2><span class="muted">Use an exact destination port and current validity.</span></div><button class="button primary" (click)="addLogistics()">＋ Logistics lane</button></div>
+    <div class="records-grid">
+      @for (item of store.logistics(); track item.id) {
+        <article class="record-card">
+          <div class="record-heading"><div><strong>{{ item.laneCode }}</strong><span>{{ item.portOfDischarge }}</span></div><div class="row-actions"><button class="button compact" (click)="saved(store.saveLogistics(item))">Save</button><button class="button compact danger" (click)="remove('logistics', item.id)">Delete</button></div></div>
+          <div class="form-grid three">
+            <div class="field"><label>Lane code</label><input [(ngModel)]="item.laneCode"></div><div class="field"><label>Country</label><input [(ngModel)]="item.country"></div><div class="field"><label>Container</label><select [(ngModel)]="item.containerType"><option value="20' Dry FCL">20' Dry FCL</option><option value="40' Dry FCL">40' Dry FCL</option></select></div>
+            <div class="field full"><label>Port of loading</label><input [(ngModel)]="item.portOfLoading"></div><div class="field full"><label>Exact port of discharge</label><input [(ngModel)]="item.portOfDischarge"></div>
+            <div class="field"><label>Ocean freight USD</label><input type="number" [(ngModel)]="item.oceanFreightUsd"></div><div class="field"><label>Surcharge USD</label><input type="number" [(ngModel)]="item.freightSurchargeUsd"></div><div class="field"><label>Insurance % of CFR</label><input type="number" step="0.1" [(ngModel)]="item.insurancePercentOfCfr"></div>
+            <div class="field"><label>Shipping line</label><input [(ngModel)]="item.shippingLine"></div><div class="field"><label>Forwarder</label><input [(ngModel)]="item.forwarder"></div><div class="field"><label>Valid to</label><input type="date" [(ngModel)]="item.validTo"></div>
+            <div class="field"><label>Transit days</label><input type="number" [(ngModel)]="item.transitDays"></div><div class="field"><label>Free days</label><input type="number" [(ngModel)]="item.freeDays"></div><div class="field"><label>Fixed insurance USD</label><input type="number" [(ngModel)]="item.fixedInsuranceUsd"></div>
+          </div>
+          <h3>Pakistan origin charges — PKR per container</h3>
+          <div class="origin-grid">
+            <label>Inland <input type="number" [(ngModel)]="item.originCharges.inlandTransportPkr"></label><label>Positioning <input type="number" [(ngModel)]="item.originCharges.containerPositioningPkr"></label><label>Stuffing <input type="number" [(ngModel)]="item.originCharges.stuffingPkr"></label><label>Customs/docs <input type="number" [(ngModel)]="item.originCharges.customsDocsPkr"></label><label>Port/terminal <input type="number" [(ngModel)]="item.originCharges.portTerminalPkr"></label><label>VGM <input type="number" [(ngModel)]="item.originCharges.vgmPkr"></label><label>Seal <input type="number" [(ngModel)]="item.originCharges.sealPkr"></label><label>Certificates <input type="number" [(ngModel)]="item.originCharges.certificatesPkr"></label><label>Inspection <input type="number" [(ngModel)]="item.originCharges.inspectionPkr"></label><label>Additional <input type="number" [(ngModel)]="item.originCharges.additionalPkr"></label>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  @if (active() === 'agents') {
+    <div class="card-header"><div><h2>Commission agents</h2><span class="muted">Internal only; commission is not printed for clients.</span></div><button class="button primary" (click)="addAgent()">＋ Agent</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Method</th><th>Rate</th><th>Territory</th><th>Payment timing</th><th></th></tr></thead><tbody>
+      @for (item of store.agents(); track item.id) {<tr><td><input class="table-input" [(ngModel)]="item.code"></td><td><input class="table-input" [(ngModel)]="item.name"></td><td><select class="table-input" [(ngModel)]="item.method"><option value="none">None</option><option value="invoice-percent">% of invoice</option><option value="usd-per-mt">USD per MT</option><option value="fixed-per-container">Fixed per container</option></select></td><td><input class="table-input" type="number" step="0.01" [(ngModel)]="item.rate"></td><td><input class="table-input" [(ngModel)]="item.territory"></td><td><input class="table-input" [(ngModel)]="item.paymentTiming"></td><td class="row-actions"><button class="button compact" (click)="saved(store.saveAgent(item))">Save</button><button class="button compact danger" [disabled]="item.id === 'agent-none'" (click)="remove('agent', item.id)">Delete</button></td></tr>}
+    </tbody></table></div>
+  }
+
+  @if (active() === 'buyers') {
+    <div class="card-header"><div><h2>Buyer database</h2><span class="muted">Saved buyers can be selected in the quotation wizard.</span></div><button class="button primary" (click)="addBuyer()">＋ Buyer</button></div>
+    <div class="records-grid buyers-grid">
+      @for (item of store.buyers(); track item.id) {<article class="record-card"><div class="record-heading"><strong>{{ item.companyName || 'New buyer' }}</strong><div class="row-actions"><button class="button compact" (click)="saved(store.saveBuyer(item))">Save</button><button class="button compact danger" (click)="remove('buyer', item.id)">Delete</button></div></div><div class="form-grid"><div class="field full"><label>Company name</label><input [(ngModel)]="item.companyName"></div><div class="field"><label>Contact person</label><input [(ngModel)]="item.contactPerson"></div><div class="field"><label>Country</label><input [(ngModel)]="item.country"></div><div class="field"><label>City</label><input [(ngModel)]="item.city"></div><div class="field"><label>Email</label><input [(ngModel)]="item.email"></div><div class="field"><label>Phone / WhatsApp</label><input [(ngModel)]="item.phone"></div><div class="field full"><label>Address</label><textarea rows="2" [(ngModel)]="item.address"></textarea></div><div class="field full"><label>Notes</label><textarea rows="2" [(ngModel)]="item.notes"></textarea></div></div></article>}
+    </div>
+  }
+</section>

@@ -1,0 +1,178 @@
+<div class="preview-toolbar no-print">
+  <a class="button" routerLink="/quotes">← Quotations</a>
+  <div class="doc-toggle"><button type="button" [class.active]="documentType() === 'quotation'" (click)="setDocument('quotation')">Standard Quotation</button><button type="button" [class.active]="documentType() === 'proforma'" (click)="setDocument('proforma')">Proforma Invoice</button></div>
+  @if (quote(); as record) { <a class="button" [routerLink]="['/quotes', record.id, 'edit']">{{ store.isQuotationLocked(record) ? 'Create Revision' : 'Edit' }}</a> }
+  <button class="button primary" type="button" [disabled]="validationErrors().length > 0" (click)="print()">Print / Save PDF</button>
+</div>
+
+<div class="pdf-validation no-print" [class.has-errors]="validationErrors().length > 0">
+  <div class="pdf-validation-heading"><div><strong>Pre-PDF validation</strong><span>{{ validationErrors().length }} critical · {{ validationWarnings().length }} advisory</span></div>@if (validationErrors().length === 0) { <span class="validation-ready">✓ Ready for PDF</span> } @else { <span class="validation-blocked">PDF blocked</span> }</div>
+  @if (validationMessage()) { <div class="notice danger">{{ validationMessage() }}</div> }
+  @if (validationErrors().length) { <div class="validation-list errors">@for (issue of validationErrors(); track issue.code) { <div>✕ {{ issue.message }}</div> }</div> }
+  @if (validationWarnings().length) { <div class="validation-list warnings">@for (issue of validationWarnings(); track issue.code) { <div>⚠ {{ issue.message }}</div> }</div> }
+</div>
+
+@if (quote(); as record) {
+  @if (documentType() === 'quotation') {
+    <div class="standard-document">
+      <!-- PAGE 1 -->
+      <section class="standard-page page-one">
+        <header class="standard-header">
+          <img class="avena-logo" src="assets/avena-logo.png" alt="Avena Agro Foods logo">
+          <div class="standard-company"><strong>{{ record.snapshots.company.legalName }}</strong><em>{{ record.snapshots.company.tagline }}</em></div>
+        </header>
+        <div class="gold-rule"></div>
+
+        <h1 class="standard-title">{{ record.input.tradeTerm === 'LOCAL' ? 'LOCAL QUOTATION' : 'EXPORT QUOTATION' }}</h1>
+
+        <table class="standard-table control-table">
+          <tbody>
+            <tr><th>Quotation No.</th><td>{{ record.quoteNumber }}</td><th>Revision No.</th><td>{{ record.document.revisionNo }}</td></tr>
+            <tr><th>Date</th><td>{{ record.input.quoteDate | date:'dd-MM-yyyy' }}</td><th>Valid Until</th><td>{{ validUntil(record) | date:'dd-MM-yyyy' }}, 23:59 PST</td></tr>
+            <tr><th>Buyer RFQ Ref.</th><td>{{ record.document.buyerRfqRef || 'N/A' }}</td><th>Prepared By</th><td>{{ record.snapshots.company.authorizedSignatory }}</td></tr>
+            <tr><th>Currency</th><td>{{ record.input.quoteCurrency }}</td><th>Document Status</th><td>{{ record.document.documentStatus }}</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="section-title">SELLER & BUYER DETAILS</h2>
+        <table class="standard-table party-table">
+          <thead><tr><th colspan="2">SELLER / EXPORTER</th><th colspan="2">BUYER / IMPORTER</th></tr></thead>
+          <tbody>
+            <tr><th>Company Name</th><td>{{ record.snapshots.company.legalName }}</td><th>Company Name</th><td>{{ record.snapshots.buyer.companyName }}</td></tr>
+            <tr><th>Registered Office</th><td>{{ record.snapshots.company.address }}</td><th>Address</th><td>{{ record.snapshots.buyer.address }}{{ record.snapshots.buyer.city ? ', ' + record.snapshots.buyer.city : '' }}</td></tr>
+            <tr><th>Processing Facility</th><td>{{ record.snapshots.company.processingFacility }}</td><th>Contact Person</th><td>{{ record.snapshots.buyer.contactPerson }}</td></tr>
+            <tr><th>Contact</th><td>{{ record.snapshots.company.phone }}</td><th>Phone / WhatsApp</th><td>{{ record.snapshots.buyer.phone }}</td></tr>
+            <tr><th>Email</th><td>{{ record.snapshots.company.email }}</td><th>Email</th><td>{{ record.snapshots.buyer.email }}</td></tr>
+            <tr><th>Registration</th><td>NTN: {{ record.snapshots.company.ntn || 'N/A' }}<br>STRN: {{ record.snapshots.company.strn || 'N/A' }}</td><th>Country</th><td>{{ record.snapshots.buyer.country }}</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="section-title">COMMERCIAL OFFER SUMMARY</h2>
+        <table class="standard-table offer-table">
+          <tbody>
+            <tr><th>Product</th><td>{{ productDisplay(record) }}</td><th>Origin</th><td>{{ record.snapshots.product.origin }}</td></tr>
+            <tr><th>HS Code</th><td>{{ record.snapshots.product.hsCode }}</td><th>Crop Year</th><td>{{ record.snapshots.product.cropYear }}</td></tr>
+            <tr><th>Quantity</th><td>{{ record.calculation.loading.totalNetMt | number:'1.0-2' }} MT</td><th>Quantity Tolerance</th><td>+/- {{ record.document.quantityTolerancePercent | number:'1.0-2' }}%</td></tr>
+            <tr><th>Packing</th><td>{{ record.snapshots.packaging.description }}</td><th>Shipment Plan</th><td>{{ shipmentPlan(record) }}</td></tr>
+            <tr><th>Unit Price / MT</th><td>{{ record.input.quoteCurrency }} {{ unitPrice(record) | number:'1.2-2' }}/-</td><th>Total Contract Value</th><td>{{ record.input.quoteCurrency }} {{ totalValue(record) | number:'1.2-2' }}/-</td></tr>
+            <tr><th>Price Basis</th><td>{{ record.document.priceBasis }}</td><th>Final Invoice</th><td>{{ record.document.finalInvoiceBasis }}</td></tr>
+            <tr><th>Port of Loading</th><td>{{ record.snapshots.logistics.portOfLoading }}</td><th>Destination Port</th><td>{{ destinationPort(record) }}</td></tr>
+            <tr><th>Incoterm</th><td>{{ incotermText(record) }}</td><th>Shipment Period</th><td>{{ record.input.shipmentDays }} calendar days after all commencement conditions are met</td></tr>
+            <tr><th>Payment Terms</th><td>{{ record.input.paymentTerms }}</td><th>LC Opening Deadline</th><td>{{ record.document.lcOpeningDeadline || 'N/A' }}</td></tr>
+          </tbody>
+        </table>
+
+        <h2 class="section-title documents-title">STANDARD EXPORT DOCUMENTS INCLUDED</h2>
+        <p class="documents-line">{{ record.document.standardDocumentsIncluded }}</p>
+        <p class="subject-note">This quotation is subject to the attached Product Specification & Commercial Controls (Annex A) and Standard Terms & Conditions.</p>
+        <footer class="standard-footer"><span>{{ record.snapshots.company.website }} &nbsp; | &nbsp; {{ record.snapshots.company.email }} &nbsp; | &nbsp; {{ footerPhone(record) }}</span><span>Page 1 of 4</span></footer>
+      </section>
+
+      <!-- PAGE 2 -->
+      <section class="standard-page">
+        <header class="standard-header">
+          <img class="avena-logo" src="assets/avena-logo.png" alt="Avena Agro Foods logo">
+          <div class="standard-company"><strong>{{ record.snapshots.company.legalName }}</strong><em>{{ record.snapshots.company.tagline }}</em></div>
+        </header>
+        <div class="gold-rule"></div>
+        <h1 class="standard-title">ANNEX A - PRODUCT SPECIFICATION & PACKAGING</h1>
+        <p class="subtitle">Product quality and packaging schedule forming part of this quotation.</p>
+
+        <h2 class="section-title">DETAILED PRODUCT SPECIFICATION</h2>
+        <table class="standard-table specification-table"><tbody>
+          <tr><th>Product / Variety</th><td>{{ productDisplay(record) }}</td><th>Processing</th><td>{{ record.snapshots.product.process }}</td></tr>
+          <tr><th>Broken</th><td>{{ percent(record.snapshots.product.brokenPercent) }}</td><th>Average Grain Length</th><td>{{ record.snapshots.product.aglMm | number:'1.0-2' }}mm</td></tr>
+          <tr><th>Moisture</th><td>{{ percent(record.snapshots.product.moistureMaxPercent) }}</td><th>Yellow Grains</th><td>{{ percent(record.snapshots.product.yellowGrainsMaxPercent) }}</td></tr>
+          <tr><th>Damaged / Discoloured</th><td>{{ percent(record.snapshots.product.damagedDiscolouredMaxPercent) }}</td><th>Paddy Grains</th><td>{{ percent(record.snapshots.product.paddyGrainsPercent, '') }}</td></tr>
+          <tr><th>Chalky Grains</th><td>{{ percent(record.snapshots.product.chalkyGrainsMaxPercent) }}</td><th>Foreign Matter</th><td>{{ percent(record.snapshots.product.foreignMatterPercent, '') }}</td></tr>
+          <tr><th>Other Varieties / Admixture</th><td>{{ percent(record.snapshots.product.otherVarietiesAdmixtureMaxPercent) }}</td><th>Sortex Status</th><td>{{ record.snapshots.product.sortexStatus }}</td></tr>
+          <tr><th>Milling Degree / Polish</th><td>{{ record.snapshots.product.millingDegreePolish }}</td><th>Sampling Basis</th><td>{{ record.snapshots.product.samplingBasis }}</td></tr>
+          <tr><th>GMO Status</th><td>{{ record.snapshots.product.gmoStatus }}</td><th>Reference Sample</th><td>{{ record.snapshots.product.referenceSample || 'N/A' }}</td></tr>
+        </tbody></table>
+
+        <h2 class="section-title">PACKAGING & MARKING</h2>
+        <table class="standard-table specification-table"><tbody>
+          <tr><th>Bag Type</th><td>{{ record.snapshots.packaging.bagType }}</td><th>Bag Size</th><td>{{ record.snapshots.packaging.retailBagKg | number:'1.0-2' }} kg</td></tr>
+          <tr><th>Net Weight</th><td>{{ record.snapshots.packaging.retailBagKg | number:'1.2-2' }} kg</td><th>Approx. Gross Weight</th><td>{{ approxGrossWeight(record) | number:'1.2-2' }}kg</td></tr>
+          <tr><th>Printing</th><td>{{ record.snapshots.packaging.printing }}</td><th>Artwork Reference</th><td>{{ record.snapshots.packaging.artworkReference || 'N/A' }}</td></tr>
+          <tr><th>Artwork Approval</th><td>{{ record.snapshots.packaging.artworkApproval }}</td><th>Closure</th><td>{{ record.snapshots.packaging.closure }}</td></tr>
+          <tr><th>Palletization</th><td>{{ record.snapshots.packaging.palletization }}</td><th>Cylinder / Plate Charges</th><td>{{ record.snapshots.packaging.cylinderPlateCharges }}</td></tr>
+          <tr><th>Special Packing Notes</th><td>{{ record.snapshots.packaging.specialPackingNotes }}</td><th>Packing Cost Basis</th><td>{{ record.snapshots.packaging.packingCostBasis }}</td></tr>
+        </tbody></table>
+        <footer class="standard-footer"><span>{{ record.snapshots.company.website }} &nbsp; | &nbsp; {{ record.snapshots.company.email }} &nbsp; | &nbsp; {{ footerPhone(record) }}</span><span>Page 2 of 4</span></footer>
+      </section>
+
+      <!-- PAGE 3 -->
+      <section class="standard-page">
+        <header class="standard-header">
+          <img class="avena-logo" src="assets/avena-logo.png" alt="Avena Agro Foods logo">
+          <div class="standard-company"><strong>{{ record.snapshots.company.legalName }}</strong><em>{{ record.snapshots.company.tagline }}</em></div>
+        </header>
+        <div class="gold-rule"></div>
+        <h1 class="standard-title">ANNEX A - SHIPMENT, LC & DOCUMENTS</h1>
+        <p class="subtitle">Shipment and documentary-credit controls forming part of this quotation.</p>
+
+        <h2 class="section-title">SHIPMENT & DOCUMENTARY CREDIT CONTROLS</h2>
+        <table class="standard-table specification-table"><tbody>
+          <tr><th>Partial Shipment</th><td>{{ record.document.partialShipment }}</td><th>Transshipment</th><td>{{ record.document.transshipment }}</td></tr>
+          <tr><th>Shipment Commencement</th><td>{{ record.document.shipmentCommencement }}</td><th>Latest Shipment Date</th><td>{{ record.document.latestShipmentDateText }}</td></tr>
+          <tr><th>LC Expiry Place</th><td>{{ record.document.lcExpiryPlace }}</td><th>Presentation Period</th><td>{{ record.document.presentationPeriod }}</td></tr>
+          <tr><th>LC Confirmation</th><td>{{ record.document.lcConfirmation }}</td><th>Confirmation Charges</th><td>{{ record.document.confirmationCharges }}</td></tr>
+          <tr><th>Bank Charges</th><td>{{ record.document.bankCharges }}</td><th>Amendment Charges</th><td>{{ record.document.amendmentCharges }}</td></tr>
+          <tr><th>Quantity / Value Tolerance</th><td>+/- {{ record.document.quantityTolerancePercent | number:'1.0-2' }}% maximum</td><th>Document Discrepancy Charges</th><td>{{ record.document.documentDiscrepancyCharges }}</td></tr>
+          <tr><th>Draft LC Review</th><td>{{ record.document.draftLcReview }}</td><th>LC Governing Rules</th><td>{{ record.document.lcGoverningRules }}</td></tr>
+          <tr><th>Freight Validity</th><td>{{ record.document.freightValidity }}</td><th>Insurance for CIF</th><td>{{ record.document.insuranceForCif }}</td></tr>
+          <tr><th>Taxes / Duties</th><td>{{ record.document.taxesDuties }}</td><th>Special Legalization</th><td>{{ record.document.specialLegalization }}</td></tr>
+          <tr><th>Buyer Documentary Wording</th><td>{{ record.document.buyerDocumentaryWording }}</td><th>Final Shipment Instructions</th><td>{{ record.document.finalShipmentInstructions }}</td></tr>
+        </tbody></table>
+
+        <h2 class="section-title additional-title">ADDITIONAL DOCUMENTS - WHERE APPLICABLE OR SPECIFICALLY REQUESTED</h2>
+        <p class="documents-line">{{ record.document.additionalDocuments }}</p>
+        <footer class="standard-footer"><span>{{ record.snapshots.company.website }} &nbsp; | &nbsp; {{ record.snapshots.company.email }} &nbsp; | &nbsp; {{ footerPhone(record) }}</span><span>Page 3 of 4</span></footer>
+      </section>
+
+      <!-- PAGE 4 -->
+      <section class="standard-page terms-page">
+        <header class="standard-header">
+          <img class="avena-logo" src="assets/avena-logo.png" alt="Avena Agro Foods logo">
+          <div class="standard-company"><strong>{{ record.snapshots.company.legalName }}</strong><em>{{ record.snapshots.company.tagline }}</em></div>
+        </header>
+        <div class="gold-rule"></div>
+        <h1 class="standard-title">STANDARD TERMS & CONDITIONS</h1>
+        <p class="subtitle">These terms form an integral part of the quotation and any accepted Proforma Invoice.</p>
+
+        <section class="terms-section"><h2 class="section-title">COMMERCIAL CONDITIONS</h2><ul>@for (item of splitTerms(record.document.commercialConditions); track item) {<li><strong>{{ termLabel(item) }}</strong>{{ termBody(item) }}</li>}</ul></section>
+        <section class="terms-section"><h2 class="section-title">QUALITY, PACKING & INSPECTION</h2><ul>@for (item of splitTerms(record.document.qualityPackingInspectionTerms); track item) {<li><strong>{{ termLabel(item) }}</strong>{{ termBody(item) }}</li>}</ul></section>
+        <section class="terms-section"><h2 class="section-title">SHIPMENT & DOCUMENTATION</h2><ul>@for (item of splitTerms(record.document.shipmentDocumentationTerms); track item) {<li><strong>{{ termLabel(item) }}</strong>{{ termBody(item) }}</li>}</ul></section>
+        <section class="terms-section"><h2 class="section-title">PAYMENT SECURITY & BANK DETAILS</h2><ul>@for (item of splitTerms(record.document.paymentSecurityTerms); track item) {<li><strong>{{ termLabel(item) }}</strong>{{ termBody(item) }}</li>}</ul></section>
+        <section class="terms-section"><h2 class="section-title">AUTHENTICITY, ACCEPTANCE & CONTRACT STATUS</h2><ul>@for (item of splitTerms(record.document.authenticityAcceptanceTerms); track item) {<li><strong>{{ termLabel(item) }}</strong>{{ termBody(item) }}</li>}</ul></section>
+
+        <div class="security-notice">{{ record.document.securityNotice }}</div>
+
+        <h2 class="section-title authorization-title">SELLER AUTHORIZATION</h2>
+        <table class="standard-table authorization-table"><tbody>
+          <tr><th>Company</th><td>{{ record.snapshots.company.legalName }}</td><th>Quotation No.</th><td>{{ record.quoteNumber }}</td></tr>
+          <tr><th>Authorized Name</th><td>{{ record.snapshots.company.authorizedSignatory }}</td><th>Designation</th><td>{{ record.snapshots.company.authorizedDesignation }}</td></tr>
+          <tr class="signature-row"><th>Signature & Seal</th><td><div class="signature-placeholder">____________________________</div></td><th>Issue Date</th><td>{{ record.input.quoteDate | date:'dd/MM/yyyy' }}</td></tr>
+          <tr><th>Buyer Acknowledgement</th><td colspan="3">{{ record.document.buyerAcknowledgement }}</td></tr>
+        </tbody></table>
+        <p class="authorization-foot">{{ record.snapshots.company.legalName }} &nbsp; | &nbsp; {{ record.snapshots.company.cityCountry }}</p>
+        <footer class="standard-footer"><span>{{ record.snapshots.company.website }} &nbsp; | &nbsp; {{ record.snapshots.company.email }} &nbsp; | &nbsp; {{ footerPhone(record) }}</span><span>Page 4 of 4</span></footer>
+      </section>
+    </div>
+  } @else {
+    <article class="proforma-page">
+      <header class="proforma-header">
+        <img src="assets/avena-logo.png" alt="Avena Agro Foods logo">
+        <div><h1>{{ record.snapshots.company.legalName }}</h1><p>{{ record.snapshots.company.tagline }}</p><small>{{ record.snapshots.company.website }} · {{ record.snapshots.company.email }} · {{ record.snapshots.company.phone }}</small></div>
+        <div class="proforma-title"><h2>PROFORMA INVOICE</h2><strong>{{ piNumber(record) }}</strong></div>
+      </header>
+      <section class="proforma-meta"><div><span>Buyer</span><strong>{{ record.snapshots.buyer.companyName }}</strong><p>{{ record.snapshots.buyer.contactPerson }}<br>{{ record.snapshots.buyer.address }} {{ record.snapshots.buyer.city }}<br>{{ record.snapshots.buyer.country }}</p></div><div><p><span>Date</span><strong>{{ record.input.quoteDate | date:'dd MMMM yyyy' }}</strong></p><p><span>Reference quotation</span><strong>{{ record.quoteNumber }}</strong></p><p><span>Currency</span><strong>{{ record.input.quoteCurrency }}</strong></p></div></section>
+      <table class="pi-goods"><thead><tr><th>Description</th><th>Packing</th><th>Quantity</th><th>Price / MT</th><th>Total</th></tr></thead><tbody><tr><td>{{ productDisplay(record) }}</td><td>{{ record.snapshots.packaging.description }}</td><td>{{ record.calculation.loading.totalNetMt | number:'1.2-2' }} MT</td><td>{{ unitPrice(record) | currency:record.input.quoteCurrency:'symbol':'1.0-2' }}</td><td>{{ totalValue(record) | currency:record.input.quoteCurrency:'symbol':'1.0-2' }}</td></tr></tbody></table>
+      <div class="pi-grid"><div><h3>Shipment</h3><p><b>Trade term:</b> {{ incotermText(record) }}</p><p><b>Port of loading:</b> {{ record.snapshots.logistics.portOfLoading }}</p><p><b>Destination:</b> {{ record.snapshots.logistics.portOfDischarge }}</p><p><b>Payment:</b> {{ record.input.paymentTerms }}</p></div><div><h3>Beneficiary bank details</h3><p><b>Beneficiary:</b> {{ record.snapshots.company.legalName }}</p><p><b>Bank:</b> {{ record.snapshots.company.bankName }}</p><p><b>Account / IBAN:</b> {{ record.snapshots.company.accountIban }}</p><p><b>SWIFT:</b> {{ record.snapshots.company.swiftCode }}</p></div></div>
+      <p class="pi-note">This document is a Proforma Invoice and not a tax invoice. Bank details should be independently verified through the official Avena contact information.</p>
+    </article>
+  }
+} @else {
+  <div class="empty-state"><h2>Quotation not found</h2><a class="button" routerLink="/quotes">Return to quotations</a></div>
+}
