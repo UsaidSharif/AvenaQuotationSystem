@@ -52,6 +52,25 @@
         },
         "extract-i18n": {
           "builder": "@angular/build:extract-i18n"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "buildTarget": "avena-quotation-pwa:build:development",
+            "runner": "vitest",
+            "tsConfig": "tsconfig.spec.json",
+            "coverageInclude": [
+              "src/app/core/services/quotation-calculator.service.ts"
+            ],
+            "coverageReporters": ["text", "html"],
+            "coverageThresholds": {
+              "perFile": true,
+              "statements": 90,
+              "branches": 85,
+              "functions": 100,
+              "lines": 90
+            }
+          }
         }
       }
     }

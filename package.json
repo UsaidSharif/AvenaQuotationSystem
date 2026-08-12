@@ -8,6 +8,8 @@
     "build": "ng build",
     "build:pwa": "ng build --configuration production",
     "serve:pwa": "http-server -p 8080 -c-1 dist/avena-quotation-pwa/browser",
+    "test": "ng test --watch=false --coverage",
+    "test:watch": "ng test",
     "watch": "ng build --watch --configuration development"
   },
   "engines": {
@@ -29,7 +31,10 @@
     "@angular/build": "^22.1.0",
     "@angular/cli": "^22.1.0",
     "@angular/compiler-cli": "^22.1.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "http-server": "^14.1.1",
-    "typescript": "~6.0.2"
+    "jsdom": "^30.0.1",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.10"
   }
 }

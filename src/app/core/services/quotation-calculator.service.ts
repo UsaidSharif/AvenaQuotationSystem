@@ -21,9 +21,79 @@ interface CalculationLookups {
 
 @Injectable({ providedIn: 'root' })
 export class QuotationCalculatorService {
-  calculate(input: QuotationInput, data: CalculationLookups): QuoteCalculation {
-    const { supplier, packaging, logistics, agent } = data;
+  calculate(rawInput: QuotationInput, data: CalculationLookups): QuoteCalculation {
     const warnings: string[] = [];
+    const nonNegative = (value: unknown, label: string): number => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        warnings.push(`${label} is missing or invalid; using 0.`);
+        return 0;
+      }
+      if (value < 0) {
+        warnings.push(`${label} cannot be negative; using 0.`);
+        return 0;
+      }
+      return value;
+    };
+
+    const input: QuotationInput = {
+      ...rawInput,
+      containers: nonNegative(rawInput.containers, 'Containers'),
+      netMtPerContainer: nonNegative(rawInput.netMtPerContainer, 'Net MT per container'),
+      spotExchangeRate: nonNegative(rawInput.spotExchangeRate, 'Spot exchange rate'),
+      fxBufferPercent: nonNegative(rawInput.fxBufferPercent, 'FX buffer percent'),
+      minimumProfitPercent: nonNegative(rawInput.minimumProfitPercent, 'Minimum profit percent'),
+      targetProfitPercent: nonNegative(rawInput.targetProfitPercent, 'Target profit percent'),
+      premiumProfitPercent: nonNegative(rawInput.premiumProfitPercent, 'Premium profit percent'),
+      contingencyPercent: nonNegative(rawInput.contingencyPercent, 'Contingency percent'),
+      bankCostPercent: nonNegative(rawInput.bankCostPercent, 'Bank cost percent'),
+      priceRoundingUsdPerMt: nonNegative(rawInput.priceRoundingUsdPerMt, 'Price rounding increment'),
+      buyerTargetUsdPerMt: nonNegative(rawInput.buyerTargetUsdPerMt, 'Buyer target price'),
+    };
+
+    const supplier: SupplierPrice = {
+      ...data.supplier,
+      ricePricePkrPerMt: nonNegative(data.supplier.ricePricePkrPerMt, 'Rice purchase price'),
+      processingPkrPerMt: nonNegative(data.supplier.processingPkrPerMt, 'Processing cost'),
+      otherPkrPerMt: nonNegative(data.supplier.otherPkrPerMt, 'Other product cost'),
+    };
+    const packaging: PackagingOption = {
+      ...data.packaging,
+      retailBagKg: nonNegative(data.packaging.retailBagKg, 'Retail bag weight'),
+      bagsPerCarton: nonNegative(data.packaging.bagsPerCarton, 'Bags per carton'),
+      cartonNetKg: nonNegative(data.packaging.cartonNetKg, 'Carton net weight'),
+      bagRatePkr: nonNegative(data.packaging.bagRatePkr, 'Bag rate'),
+      cartonRatePkr: nonNegative(data.packaging.cartonRatePkr, 'Carton rate'),
+      bagTareGrams: nonNegative(data.packaging.bagTareGrams, 'Bag tare'),
+      cartonTareKg: nonNegative(data.packaging.cartonTareKg, 'Carton tare'),
+      lengthCm: nonNegative(data.packaging.lengthCm, 'Carton length'),
+      widthCm: nonNegative(data.packaging.widthCm, 'Carton width'),
+      heightCm: nonNegative(data.packaging.heightCm, 'Carton height'),
+    };
+    const rawOrigin = data.logistics.originCharges;
+    const logistics: LogisticsRate = {
+      ...data.logistics,
+      originCharges: {
+        inlandTransportPkr: nonNegative(rawOrigin?.inlandTransportPkr, 'Inland transport charge'),
+        containerPositioningPkr: nonNegative(rawOrigin?.containerPositioningPkr, 'Container positioning charge'),
+        stuffingPkr: nonNegative(rawOrigin?.stuffingPkr, 'Stuffing charge'),
+        customsDocsPkr: nonNegative(rawOrigin?.customsDocsPkr, 'Customs and documents charge'),
+        portTerminalPkr: nonNegative(rawOrigin?.portTerminalPkr, 'Port terminal charge'),
+        vgmPkr: nonNegative(rawOrigin?.vgmPkr, 'VGM charge'),
+        sealPkr: nonNegative(rawOrigin?.sealPkr, 'Seal charge'),
+        certificatesPkr: nonNegative(rawOrigin?.certificatesPkr, 'Certificates charge'),
+        inspectionPkr: nonNegative(rawOrigin?.inspectionPkr, 'Inspection charge'),
+        additionalPkr: nonNegative(rawOrigin?.additionalPkr, 'Additional origin charge'),
+      },
+      oceanFreightUsd: nonNegative(data.logistics.oceanFreightUsd, 'Ocean freight'),
+      freightSurchargeUsd: nonNegative(data.logistics.freightSurchargeUsd, 'Freight surcharge'),
+      fixedInsuranceUsd: nonNegative(data.logistics.fixedInsuranceUsd, 'Fixed insurance'),
+      insurancePercentOfCfr: nonNegative(data.logistics.insurancePercentOfCfr, 'Insurance percent'),
+    };
+    const agent: CommissionAgent = {
+      ...data.agent,
+      rate: nonNegative(data.agent.rate, 'Commission rate'),
+    };
+
     const quoteDate = new Date(`${input.quoteDate}T00:00:00`);
     const totalNetMt = Math.max(0, input.containers) * Math.max(0, input.netMtPerContainer);
     const totalNetKg = totalNetMt * 1000;
@@ -50,7 +120,8 @@ export class QuotationCalculatorService {
     const volumeUtilizationPercent = container.usableVolumeCbm > 0 ? cargoVolumePerContainerCbm / container.usableVolumeCbm * 100 : 0;
     const withinLimits = weightUtilizationPercent <= 100 && volumeUtilizationPercent <= 100;
 
-    const quotationFxRate = input.spotExchangeRate * (1 - input.fxBufferPercent / 100);
+    const calculatedFxRate = input.spotExchangeRate * (1 - input.fxBufferPercent / 100);
+    const quotationFxRate = Number.isFinite(calculatedFxRate) && calculatedFxRate > 0 ? calculatedFxRate : 0;
     if (quotationFxRate <= 0) warnings.push('Enter a valid PKR/USD exchange rate and FX safety buffer.');
 
     const productAndProcessingPkr = (
