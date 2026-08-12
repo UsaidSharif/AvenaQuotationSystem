@@ -50,7 +50,7 @@ function productDefaults(overrides: Partial<Product> & Pick<Product, 'id'|'code'
     chalkyGrainsMaxPercent: 0, foreignMatterPercent: 0, otherVarietiesAdmixtureMaxPercent: 0,
     sortexStatus: 'Color Sorted', millingDegreePolish: 'Double Polished',
     samplingBasis: 'As per buyer’s requirement', gmoStatus: 'Non GMO - subject to certification if required',
-    referenceSample: 'N/A', cropYear: '2025/2026', hsCode: '10063010', origin: 'Pakistan', notes: '',
+    referenceSample: 'N/A', cropYear: '2025/2026', moqMt: 25, hsCode: '10063010', origin: 'Pakistan', notes: '',
     ...overrides,
   };
 }
@@ -100,6 +100,8 @@ function packagingDefaults(overrides: Partial<PackagingOption> & Pick<PackagingO
   return {
     createdAt, updatedAt: createdAt,
     bagType: 'BOPP laminated bags',
+    brandingType: 'Private Label', outerPackType: 'Carton',
+    bagsPerMasterBag: 0, masterBagRatePkr: 0, masterBagTareKg: 0,
     approxGrossWeightKg: overrides.retailBagKg, printing: 'Buyer private-label', artworkReference: 'N/A',
     artworkApproval: 'Required in writing before production', closure: 'Machine stitched',
     palletization: "Cargo palletized on the floor of 20’ FCL container",
@@ -140,11 +142,16 @@ const emptyOrigin = {
   certificatesPkr: 0, inspectionPkr: 0, additionalPkr: 0,
 };
 
+const extendedFreight = {
+  lclFreightUsdPerCbm: 0, lclFreightUsdPerMt: 0, minimumLclFreightUsd: 0,
+  destinationDeliveryUsd: 0, destinationCustomsClearanceUsd: 0, destinationDutiesTaxesUsd: 0,
+};
+
 export const demoLogistics: LogisticsRate[] = [
   {
     id: 'lane-tunisia-20', createdAt, updatedAt: createdAt, laneCode: 'PK-TUN-20',
     portOfLoading: 'Qasim Port / Karachi, Pakistan', portOfDischarge: '[Confirm Port], Tunisia',
-    country: 'Tunisia', containerType: "20' Dry FCL", originCharges: {...emptyOrigin},
+    country: 'Tunisia', containerType: "20' Dry FCL", originCharges: {...emptyOrigin}, ...extendedFreight,
     oceanFreightUsd: 0, freightSurchargeUsd: 0, fixedInsuranceUsd: 0,
     insurancePercentOfCfr: 0.3, shippingLine: '', forwarder: '', transitDays: 0,
     freeDays: 0, validTo,
@@ -152,7 +159,7 @@ export const demoLogistics: LogisticsRate[] = [
   {
     id: 'lane-qatar-20', createdAt, updatedAt: createdAt, laneCode: 'PK-QAT-20',
     portOfLoading: 'Qasim Port / Karachi, Pakistan', portOfDischarge: 'Hamad Port, Qatar',
-    country: 'Qatar', containerType: "20' Dry FCL", originCharges: {...emptyOrigin},
+    country: 'Qatar', containerType: "20' Dry FCL", originCharges: {...emptyOrigin}, ...extendedFreight,
     oceanFreightUsd: 0, freightSurchargeUsd: 0, fixedInsuranceUsd: 0,
     insurancePercentOfCfr: 0.3, shippingLine: '', forwarder: '', transitDays: 0,
     freeDays: 0, validTo,
@@ -160,7 +167,7 @@ export const demoLogistics: LogisticsRate[] = [
   {
     id: 'lane-local-20', createdAt, updatedAt: createdAt, laneCode: 'LOCAL-PK-20',
     portOfLoading: 'Mill / Warehouse', portOfDischarge: 'Customer Location, Pakistan',
-    country: 'Pakistan', containerType: "20' Dry FCL", originCharges: {...emptyOrigin},
+    country: 'Pakistan', containerType: "20' Dry FCL", originCharges: {...emptyOrigin}, ...extendedFreight,
     oceanFreightUsd: 0, freightSurchargeUsd: 0, fixedInsuranceUsd: 0,
     insurancePercentOfCfr: 0, shippingLine: 'Local Transport', forwarder: '', transitDays: 0,
     freeDays: 0, validTo,

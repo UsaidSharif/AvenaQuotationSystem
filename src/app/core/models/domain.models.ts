@@ -1,11 +1,16 @@
-export type TradeTerm = 'LOCAL' | 'EXW' | 'FCA' | 'FOB' | 'CFR' | 'CIF';
+export type TradeTerm = 'LOCAL' | 'EXW' | 'FCA' | 'FOB' | 'CFR' | 'CNF' | 'CIF' | 'DAP' | 'DDP';
 export type QuoteScenario = 'Minimum' | 'Target' | 'Premium';
 export type QuoteCurrency = 'USD' | 'PKR';
 export type QuoteStatus = 'Draft' | 'Sent' | 'Under Negotiation' | 'Accepted' | 'Rejected' | 'Expired';
 export type DocumentStatus = 'Draft' | 'Final';
-export type ContainerType = "20' Dry FCL" | "40' Dry FCL";
+export type ContainerType = "20' Dry FCL" | "40' Dry FCL" | 'LCL';
 export type ProfitMethod = 'margin' | 'markup';
 export type CommissionMethod = 'none' | 'invoice-percent' | 'usd-per-mt' | 'fixed-per-container';
+export type PaymentMethod = 'advance-tt' | 'tt' | 'lc-at-sight' | 'usance-lc' | 'cad' | 'dp' | 'da' | 'open-account' | 'custom';
+export type BrandingType = 'Plain / Generic' | 'Private Label' | 'OEM Packing';
+export type OuterPackType = 'Carton' | 'Master Bag' | 'None';
+export type VesselService = 'Direct Vessel' | 'Transshipment' | 'To Be Confirmed';
+export type PrintableDocumentType = 'quotation' | 'proforma' | 'sales-contract' | 'commercial-invoice' | 'packing-list';
 
 export interface BaseRecord {
   id: string;
@@ -84,6 +89,7 @@ export interface Product extends BaseRecord {
   gmoStatus: string;
   referenceSample: string;
   cropYear: string;
+  moqMt: number;
   hsCode: string;
   origin: string;
   notes: string;
@@ -105,9 +111,14 @@ export interface PackagingOption extends BaseRecord {
   code: string;
   description: string;
   bagType: string;
+  brandingType: BrandingType;
+  outerPackType: OuterPackType;
   retailBagKg: number;
   bagsPerCarton: number;
   cartonNetKg: number;
+  bagsPerMasterBag: number;
+  masterBagRatePkr: number;
+  masterBagTareKg: number;
   approxGrossWeightKg: number;
   printing: string;
   artworkReference: string;
@@ -150,8 +161,14 @@ export interface LogisticsRate extends BaseRecord {
   originCharges: OriginCharges;
   oceanFreightUsd: number;
   freightSurchargeUsd: number;
+  lclFreightUsdPerCbm: number;
+  lclFreightUsdPerMt: number;
+  minimumLclFreightUsd: number;
   fixedInsuranceUsd: number;
   insurancePercentOfCfr: number;
+  destinationDeliveryUsd: number;
+  destinationCustomsClearanceUsd: number;
+  destinationDutiesTaxesUsd: number;
   shippingLine: string;
   forwarder: string;
   transitDays: number;
@@ -184,6 +201,14 @@ export interface QuotationInput {
   containers: number;
   netMtPerContainer: number;
   paymentTerms: string;
+  paymentMethod: PaymentMethod;
+  advancePercent: number;
+  balancePercent: number;
+  paymentTenorDays: number;
+  paymentTrigger: string;
+  paymentFinancingAnnualPercent: number;
+  paymentBankChargesUsd: number;
+  paymentRiskBufferPercent: number;
   shipmentDays: number;
   agentId: string;
   spotExchangeRate: number;
@@ -210,6 +235,13 @@ export interface QuotationDocumentDetails {
   lcOpeningDeadline: string;
   partialShipment: string;
   transshipment: string;
+  vesselService: VesselService;
+  containerStuffing: string;
+  stuffingDate: string;
+  sealNumber: string;
+  verifiedGrossMassKg: number;
+  etd: string;
+  eta: string;
   shipmentCommencement: string;
   latestShipmentDateText: string;
   lcExpiryPlace: string;
@@ -236,6 +268,25 @@ export interface QuotationDocumentDetails {
   authenticityAcceptanceTerms: string;
   securityNotice: string;
   buyerAcknowledgement: string;
+  proformaInvoiceNumber: string;
+  proformaInvoiceDate: string;
+  proformaInvoiceStatus: DocumentStatus;
+  salesContractNumber: string;
+  salesContractDate: string;
+  salesContractStatus: DocumentStatus;
+  commercialInvoiceNumber: string;
+  commercialInvoiceDate: string;
+  commercialInvoiceStatus: DocumentStatus;
+  packingListNumber: string;
+  packingListDate: string;
+  packingListStatus: DocumentStatus;
+  purchaseOrderRef: string;
+  billOfLadingNumber: string;
+  vesselName: string;
+  voyageNumber: string;
+  containerNumbers: string;
+  consigneeDetails: string;
+  notifyParty: string;
 }
 
 export interface LoadingResult {
@@ -243,6 +294,7 @@ export interface LoadingResult {
   totalNetKg: number;
   totalBags: number;
   totalCartons: number;
+  totalMasterBags: number;
   totalPackagingTareKg: number;
   grossCargoPerContainerKg: number;
   cargoVolumePerContainerCbm: number;
@@ -259,6 +311,7 @@ export interface CostBreakdown {
   productAndProcessingPkr: number;
   packagingPkr: number;
   originChargesPkr: number;
+  localChargesPkr: number;
   directFobUsd: number;
   contingencyUsd: number;
   bankCostUsd: number;
@@ -270,6 +323,15 @@ export interface CostBreakdown {
   fixedInsuranceUsd: number;
   variableInsuranceUsd: number;
   cifCostUsd: number;
+  destinationDeliveryUsd: number;
+  destinationCustomsClearanceUsd: number;
+  destinationDutiesTaxesUsd: number;
+  dapCostUsd: number;
+  ddpCostUsd: number;
+  paymentFinancingUsd: number;
+  paymentBankChargesUsd: number;
+  paymentRiskBufferUsd: number;
+  paymentCostsUsd: number;
   selectedTermCostUsd: number;
 }
 

@@ -26,12 +26,16 @@
         <div class="field"><label>Buyer RFQ Ref.</label><input formControlName="buyerRfqRef" placeholder="N/A"></div>
         <div class="field"><label>Document status *</label><select formControlName="documentStatus"><option value="Draft">Draft</option><option value="Final">Final</option></select></div>
         <div class="field full"><label>Buyer *</label><select formControlName="buyerId"><option value="">Select buyer</option>@for (buyer of store.buyers(); track buyer.id) {<option [value]="buyer.id">{{ buyer.companyName }} — {{ buyer.country }}</option>}</select><small>Buyers can be added in Master Data.</small></div>
-        <div class="field"><label>Trade term *</label><select formControlName="tradeTerm"><option value="LOCAL">Local delivery</option><option value="EXW">EXW</option><option value="FCA">FCA</option><option value="FOB">FOB</option><option value="CFR">CFR</option><option value="CIF">CIF</option></select></div>
+        <div class="field"><label>Trade term *</label><select formControlName="tradeTerm"><option value="LOCAL">Local delivery</option><option value="EXW">EXW</option><option value="FCA">FCA</option><option value="FOB">FOB</option><option value="CFR">CFR</option><option value="CNF">CNF (CFR cost basis)</option><option value="CIF">CIF</option><option value="DAP">DAP</option><option value="DDP">DDP</option></select></div>
         <div class="field"><label>Quotation currency *</label><select formControlName="quoteCurrency"><option value="USD">USD</option><option value="PKR">PKR</option></select></div>
         <div class="field"><label>Price scenario *</label><select formControlName="scenario"><option value="Minimum">Minimum</option><option value="Target">Target</option><option value="Premium">Premium</option></select></div>
         <div class="field"><label>Shipment period (days) *</label><input type="number" min="1" formControlName="shipmentDays"></div>
-        <div class="field full"><label>Payment terms *</label><input list="payment-terms-list" formControlName="paymentTerms"><datalist id="payment-terms-list"><option value="100% Advance"></option><option value="Irrevocable LC at Sight"></option><option value="30% Advance + 70% Against BL Copy"></option><option value="30% Advance / 70% Against Documents"></option><option value="CAD / Documents Against Payment"></option><option value="Open Account"></option></datalist><small>Select a suggestion or type any custom term.</small></div>
+        <div class="field full"><label>Payment method *</label><select formControlName="paymentMethod">@for (option of paymentMethods; track option.value) {<option [value]="option.value">{{ option.label }}</option>}</select></div>
+        <div class="field full"><label>Payment terms wording *</label><input formControlName="paymentTerms"><small>Printed on the quotation; edit when using split or custom terms.</small></div>
+        <div class="field"><label>Advance %</label><input type="number" min="0" max="100" formControlName="advancePercent"></div><div class="field"><label>Balance %</label><input type="number" min="0" max="100" formControlName="balancePercent"></div>
+        <div class="field"><label>Tenor / credit days</label><input type="number" min="0" formControlName="paymentTenorDays"></div><div class="field full"><label>Payment trigger</label><input formControlName="paymentTrigger"></div>
       </div>
+      <details class="notice"><summary><strong>Trade and payment terminology</strong></summary><p><b>EXW</b> Ex Works · <b>FCA</b> Free Carrier · <b>FOB</b> Free On Board · <b>CFR</b> Cost and Freight · <b>CNF</b> commercial shorthand using CFR cost basis · <b>CIF</b> Cost, Insurance and Freight · <b>DAP</b> Delivered at Place, buyer handles import clearance · <b>DDP</b> Delivered Duty Paid, seller handles costed import clearance, duties and taxes.</p><p><b>TT</b> Telegraphic Transfer · <b>LC at Sight</b> payment against compliant LC documents at sight · <b>Usance LC</b> deferred LC payment · <b>CAD</b> Cash Against Documents · <b>D/P</b> Documents Against Payment · <b>D/A</b> Documents Against Acceptance · <b>Open Account</b> payment after an agreed credit period.</p></details>
     }
 
     @if (step() === 1) {
@@ -47,26 +51,27 @@
           <div><small>Broken</small><strong>{{ product.brokenPercent }}% max</strong></div><div><small>AGL</small><strong>{{ product.aglMm }} mm</strong></div>
           <div><small>Moisture</small><strong>{{ product.moistureMaxPercent }}% max</strong></div><div><small>Crop</small><strong>{{ product.cropYear }}</strong></div>
           <div><small>Sortex</small><strong>{{ product.sortexStatus }}</strong></div><div><small>Polish</small><strong>{{ product.millingDegreePolish }}</strong></div>
-          <div><small>GMO</small><strong>{{ product.gmoStatus }}</strong></div><div><small>HS Code</small><strong>{{ product.hsCode }}</strong></div>
+          <div><small>GMO</small><strong>{{ product.gmoStatus }}</strong></div><div><small>HS Code</small><strong>{{ product.hsCode }}</strong></div><div><small>MOQ</small><strong>{{ product.moqMt }} MT</strong></div>
         </div>
       }
       @if (selectedPackaging(); as pack) {
         <div class="selection-summary detailed-summary">
           <div><small>Bag type</small><strong>{{ pack.bagType }}</strong></div><div><small>Bag size</small><strong>{{ pack.retailBagKg }} kg</strong></div>
-          <div><small>Printing</small><strong>{{ pack.printing }}</strong></div><div><small>Closure</small><strong>{{ pack.closure }}</strong></div>
+          <div><small>Printing</small><strong>{{ pack.printing }}</strong></div><div><small>Closure</small><strong>{{ pack.closure }}</strong></div><div><small>Branding</small><strong>{{ pack.brandingType }}</strong></div><div><small>Outer pack</small><strong>{{ pack.outerPackType }}</strong></div>
         </div>
       }
       @if (selectedSupplier(); as supplier) {
         <div class="notice" [class.warning]="supplier.ricePricePkrPerMt <= 0">Rice price: <strong>PKR {{ supplier.ricePricePkrPerMt | number:'1.0-0' }}/MT</strong>. Processing: PKR {{ supplier.processingPkrPerMt | number:'1.0-0' }}/MT.</div>
       }
+      <details class="notice"><summary><strong>Packaging terminology</strong></summary><p><b>PP Bag</b> polypropylene · <b>BOPP Bag</b> printed laminated polypropylene · <b>Non-woven Bag</b> fabric-style packaging · <b>Jute Bag</b> natural-fibre packaging · <b>Master Bag</b> outer bag containing retail packs · <b>Private Label</b> buyer-branded packaging · <b>OEM Packing</b> buyer-specific branding/specification.</p><p><b>Net Weight</b> rice only · <b>Gross Weight</b> rice plus packaging · <b>Tare Weight</b> packaging weight.</p></details>
     }
 
     @if (step() === 2) {
       <div class="card-header"><div><h2>Shipment and freight</h2><span class="muted">Select the lane, named place, container and planned load.</span></div></div>
       <div class="card-body form-grid">
         <div class="field full"><label>Logistics lane *</label><select formControlName="logisticsId"><option value="">Select route</option>@for (lane of store.logistics(); track lane.id) {<option [value]="lane.id">{{ lane.laneCode }} — {{ lane.portOfDischarge }}</option>}</select></div>
-        <div class="field full"><label>Incoterm named place / port</label><input formControlName="incotermNamedPlace"><small>For FOB use the loading port; for CFR/CIF use the destination port; for EXW/FCA confirm the exact named place.</small></div>
-        <div class="field"><label>Container type *</label><select formControlName="containerType"><option value="20' Dry FCL">20' Dry FCL</option><option value="40' Dry FCL">40' Dry FCL</option></select></div>
+        <div class="field full"><label>Named place / port</label><input formControlName="incotermNamedPlace"><small>FOB uses POL; CFR/CNF/CIF use POD; DAP/DDP require the exact delivery destination.</small></div>
+        <div class="field"><label>Shipment mode *</label><select formControlName="containerType"><option value="20' Dry FCL">20' FCL — Full Container Load</option><option value="40' Dry FCL">40' FCL — Full Container Load</option><option value="LCL">LCL — Less than Container Load</option></select></div>
         <div class="field"><label>Number of containers *</label><input type="number" min="1" formControlName="containers"></div>
         <div class="field"><label>Net MT per container *</label><input type="number" min="0.1" step="0.1" formControlName="netMtPerContainer"></div>
         <div class="field"><label>Total net MT</label><input class="readonly" readonly [value]="calculation()?.loading?.totalNetMt ?? 0"></div>
@@ -84,6 +89,7 @@
           <div><small>Recommended maximum</small><strong>{{ result.loading.recommendedMaxNetMt | number:'1.1-2' }} MT</strong><span>Based on entered packaging dimensions</span></div>
         </div>
       }
+      <details class="notice"><summary><strong>Container and freight terminology</strong></summary><p><b>FCL</b> Full Container Load · <b>LCL</b> Less than Container Load · <b>20' FCL / 40' FCL</b> full 20-foot / 40-foot container · <b>Container Stuffing</b> loading cargo into the container · <b>Seal Number</b> security seal ID · <b>VGM</b> Verified Gross Mass.</p><p><b>POL</b> Port of Loading · <b>POD</b> Port of Discharge · <b>ETD</b> Estimated Time of Departure · <b>ETA</b> Estimated Time of Arrival · <b>Transshipment</b> cargo changes vessel or route · <b>Direct Vessel</b> no relevant route transshipment.</p><p><b>Freight</b> transportation cost · <b>Ocean Freight</b> sea shipping cost · <b>Local Charges</b> origin/local costs · <b>THC</b> Terminal Handling Charges.</p></details>
     }
 
     @if (step() === 3) {
@@ -98,6 +104,9 @@
         <div class="field"><label>Premium profit %</label><input type="number" min="0" step="0.1" formControlName="premiumProfitPercent"></div>
         <div class="field"><label>Contingency %</label><input type="number" min="0" step="0.1" formControlName="contingencyPercent"></div>
         <div class="field"><label>Bank/payment cost %</label><input type="number" min="0" step="0.1" formControlName="bankCostPercent"></div>
+        <div class="field"><label>Payment financing annual %</label><input type="number" min="0" step="0.1" formControlName="paymentFinancingAnnualPercent"></div>
+        <div class="field"><label>Payment bank charges USD</label><input type="number" min="0" step="1" formControlName="paymentBankChargesUsd"></div>
+        <div class="field"><label>Payment risk buffer %</label><input type="number" min="0" step="0.1" formControlName="paymentRiskBufferPercent"></div>
         <div class="field"><label>Round USD/MT to</label><input type="number" min="0.01" step="0.01" formControlName="priceRoundingUsdPerMt"></div>
         <div class="field full"><label>Commission agent</label><select formControlName="agentId">@for (agent of store.agents(); track agent.id) {<option [value]="agent.id">{{ agent.name }} — {{ agent.method }} {{ agent.rate }}</option>}</select></div>
         <div class="field full"><label>Buyer target price USD/MT (optional)</label><input type="number" min="0" step="1" formControlName="buyerTargetUsdPerMt"><small>The app warns when it is below break-even.</small></div>
@@ -105,8 +114,36 @@
     }
 
     @if (step() === 4) {
-      <div class="card-header"><div><h2>Standard quotation document controls</h2><span class="muted">These fields populate pages 1, 3 and 4. They are editable for every quotation.</span></div><button class="button" type="button" (click)="resetDocumentControls()">Reset standard wording</button></div>
+      <div class="card-header"><div><h2>Document controls</h2><span class="muted">Manage quotation wording and the documents generated from this transaction.</span></div><button class="button" type="button" (click)="resetDocumentControls()">Reset standard wording</button></div>
       <div class="card-body document-controls">
+        <h3>Generated document controls</h3>
+        <p class="muted terms-help">Each output has its own number, issue date, and Draft/Final status. Numbers are automatically derived from the quotation number and remain editable.</p>
+        <div class="form-grid three">
+          <div class="field"><label>Proforma Invoice No.</label><input formControlName="proformaInvoiceNumber"></div>
+          <div class="field"><label>Proforma Invoice date *</label><input type="date" formControlName="proformaInvoiceDate"></div>
+          <div class="field"><label>Proforma Invoice status *</label><select formControlName="proformaInvoiceStatus"><option value="Draft">Draft</option><option value="Final">Final</option></select></div>
+          <div class="field"><label>Sales Contract No.</label><input formControlName="salesContractNumber"></div>
+          <div class="field"><label>Sales Contract date *</label><input type="date" formControlName="salesContractDate"></div>
+          <div class="field"><label>Sales Contract status *</label><select formControlName="salesContractStatus"><option value="Draft">Draft</option><option value="Final">Final</option></select></div>
+          <div class="field"><label>Commercial Invoice No.</label><input formControlName="commercialInvoiceNumber"></div>
+          <div class="field"><label>Commercial Invoice date *</label><input type="date" formControlName="commercialInvoiceDate"></div>
+          <div class="field"><label>Commercial Invoice status *</label><select formControlName="commercialInvoiceStatus"><option value="Draft">Draft</option><option value="Final">Final</option></select></div>
+          <div class="field"><label>Packing List No.</label><input formControlName="packingListNumber"></div>
+          <div class="field"><label>Packing List date *</label><input type="date" formControlName="packingListDate"></div>
+          <div class="field"><label>Packing List status *</label><select formControlName="packingListStatus"><option value="Draft">Draft</option><option value="Final">Final</option></select></div>
+        </div>
+
+        <h3>Invoice and shipment references</h3>
+        <div class="form-grid">
+          <div class="field"><label>Purchase Order reference</label><input formControlName="purchaseOrderRef" placeholder="N/A"></div>
+          <div class="field"><label>Bill of Lading number</label><input formControlName="billOfLadingNumber" placeholder="TBC until shipment"></div>
+          <div class="field"><label>Vessel name</label><input formControlName="vesselName" placeholder="TBC until booking"></div>
+          <div class="field"><label>Voyage number</label><input formControlName="voyageNumber" placeholder="TBC until booking"></div>
+          <div class="field full"><label>Container number(s)</label><textarea rows="2" formControlName="containerNumbers" placeholder="One or more container identifiers"></textarea></div>
+          <div class="field full"><label>Consignee details</label><textarea rows="3" formControlName="consigneeDetails" placeholder="Leave blank to use the buyer details"></textarea></div>
+          <div class="field full"><label>Notify party</label><textarea rows="2" formControlName="notifyParty"></textarea></div>
+        </div>
+
         <h3>Commercial offer wording</h3>
         <div class="form-grid">
           <div class="field"><label>Quantity tolerance %</label><input type="number" step="0.1" formControlName="quantityTolerancePercent"></div>
@@ -119,6 +156,9 @@
         <h3>Shipment & documentary-credit controls</h3>
         <div class="form-grid">
           <div class="field"><label>Partial shipment</label><input formControlName="partialShipment"></div><div class="field"><label>Transshipment</label><input formControlName="transshipment"></div>
+          <div class="field"><label>Vessel service</label><select formControlName="vesselService"><option value="Direct Vessel">Direct Vessel</option><option value="Transshipment">Transshipment</option><option value="To Be Confirmed">To Be Confirmed</option></select></div><div class="field"><label>Container stuffing location</label><input formControlName="containerStuffing"></div>
+          <div class="field"><label>Stuffing date</label><input type="date" formControlName="stuffingDate"></div><div class="field"><label>Seal number</label><input formControlName="sealNumber"></div>
+          <div class="field"><label>VGM — Verified Gross Mass (kg)</label><input type="number" min="0" formControlName="verifiedGrossMassKg"></div><div class="field"><label>ETD — Estimated Time of Departure</label><input type="date" formControlName="etd"></div><div class="field"><label>ETA — Estimated Time of Arrival</label><input type="date" formControlName="eta"></div>
           <div class="field full"><label>Shipment commencement</label><textarea rows="2" formControlName="shipmentCommencement"></textarea></div><div class="field full"><label>Latest shipment date wording</label><input formControlName="latestShipmentDateText"></div>
           <div class="field"><label>LC expiry place</label><input formControlName="lcExpiryPlace"></div><div class="field"><label>Presentation period</label><input formControlName="presentationPeriod"></div>
           <div class="field"><label>LC confirmation</label><input formControlName="lcConfirmation"></div><div class="field"><label>Confirmation charges</label><input formControlName="confirmationCharges"></div>
@@ -191,7 +231,10 @@
           <div><dt>Selected term cost</dt><dd>{{ result.costs.selectedTermCostUsd | currency:'USD' }}</dd></div>
           <div><dt>FOB cost</dt><dd>{{ result.costs.fobCostUsd | currency:'USD' }}</dd></div>
           <div><dt>Freight</dt><dd>{{ result.costs.freightUsd | currency:'USD' }}</dd></div>
+          <div><dt>Local charges</dt><dd>{{ result.costs.localChargesPkr | currency:'PKR':'symbol':'1.0-0' }}</dd></div>
           <div><dt>Insurance</dt><dd>{{ result.costs.fixedInsuranceUsd + result.costs.variableInsuranceUsd | currency:'USD' }}</dd></div>
+          <div><dt>Destination costs</dt><dd>{{ result.costs.destinationDeliveryUsd + result.costs.destinationCustomsClearanceUsd + result.costs.destinationDutiesTaxesUsd | currency:'USD' }}</dd></div>
+          <div><dt>Payment costs</dt><dd>{{ result.costs.paymentCostsUsd | currency:'USD' }}</dd></div>
           <div><dt>Invoice total</dt><dd>{{ invoiceTotal() | currency:form.controls.quoteCurrency.value:'symbol':'1.0-2' }}</dd></div>
           <div><dt>Net profit</dt><dd>{{ result.netProfitUsd | currency:'USD' }}</dd></div>
         </dl>

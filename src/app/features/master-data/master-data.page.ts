@@ -26,7 +26,7 @@ export class MasterDataPage {
       paddyGrainsPercent: 0, chalkyGrainsMaxPercent: 0, foreignMatterPercent: 0,
       otherVarietiesAdmixtureMaxPercent: 0, sortexStatus: 'Color Sorted', millingDegreePolish: 'Double Polished',
       samplingBasis: 'As per buyer’s requirement', gmoStatus: 'Non GMO - subject to certification if required',
-      referenceSample: 'N/A', cropYear: '', hsCode: '10063010', origin: 'Pakistan', notes: '',
+      referenceSample: 'N/A', cropYear: '', moqMt: 25, hsCode: '10063010', origin: 'Pakistan', notes: '',
       id: '', createdAt: '', updatedAt: '',
     });
     await this.store.saveProduct(item);
@@ -44,6 +44,8 @@ export class MasterDataPage {
   async addPackaging(): Promise<void> {
     const item = this.store.newRecord<PackagingOption>('pack', {
       code: 'NEW-PACK', description: '', bagType: 'BOPP laminated bags', retailBagKg: 1,
+      brandingType: 'Private Label', outerPackType: 'Carton', bagsPerMasterBag: 0,
+      masterBagRatePkr: 0, masterBagTareKg: 0,
       bagsPerCarton: 1, cartonNetKg: 1, approxGrossWeightKg: 1, printing: 'Buyer private-label',
       artworkReference: 'N/A', artworkApproval: 'Required in writing before production', closure: 'Machine stitched',
       palletization: "Cargo palletized on the floor of 20’ FCL container", cylinderPlateCharges: 'After the approval of design',
@@ -61,7 +63,10 @@ export class MasterDataPage {
       containerType: "20' Dry FCL", originCharges: {
         inlandTransportPkr: 0, containerPositioningPkr: 0, stuffingPkr: 0, customsDocsPkr: 0,
         portTerminalPkr: 0, vgmPkr: 0, sealPkr: 0, certificatesPkr: 0, inspectionPkr: 0, additionalPkr: 0,
-      }, oceanFreightUsd: 0, freightSurchargeUsd: 0, fixedInsuranceUsd: 0, insurancePercentOfCfr: 0.3,
+      }, oceanFreightUsd: 0, freightSurchargeUsd: 0,
+      lclFreightUsdPerCbm: 0, lclFreightUsdPerMt: 0, minimumLclFreightUsd: 0,
+      fixedInsuranceUsd: 0, insurancePercentOfCfr: 0.3,
+      destinationDeliveryUsd: 0, destinationCustomsClearanceUsd: 0, destinationDutiesTaxesUsd: 0,
       shippingLine: '', forwarder: '', transitDays: 0, freeDays: 0, validTo: todayIso(),
       id: '', createdAt: '', updatedAt: '',
     });

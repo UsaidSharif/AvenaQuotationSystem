@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   CommissionAgent, ContainerType, DocumentStatus, LogisticsRate, PackagingOption, Product,
-  ProfitMethod, QuoteCalculation, QuoteCurrency, QuoteScenario, QuotationDocumentDetails,
+  PaymentMethod, ProfitMethod, QuoteCalculation, QuoteCurrency, QuoteScenario, QuotationDocumentDetails, VesselService,
   QuotationInput, QuotationRecord, SupplierPrice, TradeTerm,
 } from '../../core/models/domain.models';
 import { AppStoreService } from '../../core/services/app-store.service';
@@ -13,6 +13,8 @@ import { QuotationCalculatorService } from '../../core/services/quotation-calcul
 import { QuotationValidationService } from '../../core/services/quotation-validation.service';
 import { createDefaultQuotationDocument } from '../../core/data/quotation-document.defaults';
 import { createId, nowIso, todayIso } from '../../shared/utils/ids';
+import { paymentMethodLabel, paymentMethodOptions } from '../../shared/utils/commercial-terms';
+import { deriveDocumentNumber } from '../../shared/utils/document-identifiers';
 
 @Component({
   imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, DecimalPipe],
@@ -32,6 +34,7 @@ export class QuoteWizardPage implements OnInit {
   readonly calculation = signal<QuoteCalculation | null>(null);
   readonly saving = signal(false);
   readonly message = signal('');
+  readonly paymentMethods = paymentMethodOptions;
   readonly steps = ['Buyer & terms', 'Product & packing', 'Shipment & freight', 'Profit & commission', 'Document controls', 'Review'];
   quoteTitle(): string { return this.revisionSourceId ? 'Create Quotation Revision' : this.existingId ? 'Edit Quotation' : 'Create New Quotation'; }
 
@@ -56,7 +59,15 @@ export class QuoteWizardPage implements OnInit {
     containerType: ["20' Dry FCL" as ContainerType, Validators.required],
     containers: [1, [Validators.required, Validators.min(1)]],
     netMtPerContainer: [25, [Validators.required, Validators.min(0.1)]],
-    paymentTerms: ['100% Advance', Validators.required],
+    paymentMethod: ['advance-tt' as PaymentMethod, Validators.required],
+    paymentTerms: ['100% Advance TT', Validators.required],
+    advancePercent: [100, [Validators.required, Validators.min(0), Validators.max(100)]],
+    balancePercent: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
+    paymentTenorDays: [0, [Validators.required, Validators.min(0)]],
+    paymentTrigger: ['Before production', Validators.required],
+    paymentFinancingAnnualPercent: [0, [Validators.required, Validators.min(0)]],
+    paymentBankChargesUsd: [0, [Validators.required, Validators.min(0)]],
+    paymentRiskBufferPercent: [0, [Validators.required, Validators.min(0)]],
     shipmentDays: [10, [Validators.required, Validators.min(1)]],
     agentId: ['agent-none', Validators.required],
     spotExchangeRate: [285, [Validators.required, Validators.min(1)]],
@@ -81,6 +92,13 @@ export class QuoteWizardPage implements OnInit {
     lcOpeningDeadline: ['N/A'],
     partialShipment: ['Not Allowed'],
     transshipment: ['Not Allowed'],
+    vesselService: ['To Be Confirmed' as VesselService],
+    containerStuffing: ['Seller’s mill / nominated warehouse'],
+    stuffingDate: [''],
+    sealNumber: [''],
+    verifiedGrossMassKg: [0, Validators.min(0)],
+    etd: [''],
+    eta: [''],
     shipmentCommencement: [''],
     latestShipmentDateText: [''],
     lcExpiryPlace: ['N/A'],
@@ -107,6 +125,25 @@ export class QuoteWizardPage implements OnInit {
     authenticityAcceptanceTerms: [''],
     securityNotice: [''],
     buyerAcknowledgement: [''],
+    proformaInvoiceNumber: [''],
+    proformaInvoiceDate: [todayIso(), Validators.required],
+    proformaInvoiceStatus: ['Draft' as DocumentStatus, Validators.required],
+    salesContractNumber: [''],
+    salesContractDate: [todayIso(), Validators.required],
+    salesContractStatus: ['Draft' as DocumentStatus, Validators.required],
+    commercialInvoiceNumber: [''],
+    commercialInvoiceDate: [todayIso(), Validators.required],
+    commercialInvoiceStatus: ['Draft' as DocumentStatus, Validators.required],
+    packingListNumber: [''],
+    packingListDate: [todayIso(), Validators.required],
+    packingListStatus: ['Draft' as DocumentStatus, Validators.required],
+    purchaseOrderRef: ['N/A'],
+    billOfLadingNumber: [''],
+    vesselName: [''],
+    voyageNumber: [''],
+    containerNumbers: [''],
+    consigneeDetails: [''],
+    notifyParty: ['Same as consignee unless otherwise stated'],
     notes: [''],
   });
 
@@ -127,7 +164,8 @@ export class QuoteWizardPage implements OnInit {
       this.form.controls.netMtPerContainer.setValue(type === "40' Dry FCL" ? settings.defaultNetMt40Ft : settings.defaultNetMt20Ft);
     });
     this.form.controls.logisticsId.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshNamedPlace());
-    this.form.controls.tradeTerm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refreshNamedPlace());
+    this.form.controls.tradeTerm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.applyTradeTerm());
+    this.form.controls.paymentMethod.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(method => this.applyPaymentMethod(method));
     this.recalculate();
   }
 
@@ -140,6 +178,47 @@ export class QuoteWizardPage implements OnInit {
   selectedPackaging(): PackagingOption | undefined { return this.store.packaging().find(item => item.id === this.form.controls.packagingId.value); }
   selectedLogistics(): LogisticsRate | undefined { return this.store.logistics().find(item => item.id === this.form.controls.logisticsId.value); }
   selectedAgent(): CommissionAgent | undefined { return this.store.agents().find(item => item.id === this.form.controls.agentId.value); }
+
+  private applyPaymentMethod(method: PaymentMethod): void {
+    const presets: Record<PaymentMethod, { advance: number; balance: number; tenor: number; trigger: string }> = {
+      'advance-tt': { advance: 100, balance: 0, tenor: 0, trigger: 'Before production' },
+      'tt': { advance: 0, balance: 100, tenor: 0, trigger: 'As agreed by TT' },
+      'lc-at-sight': { advance: 0, balance: 100, tenor: 0, trigger: 'At sight against compliant documents' },
+      'usance-lc': { advance: 0, balance: 100, tenor: 90, trigger: 'From bill of lading date' },
+      'cad': { advance: 0, balance: 100, tenor: 0, trigger: 'Cash against documents' },
+      'dp': { advance: 0, balance: 100, tenor: 0, trigger: 'Documents against payment' },
+      'da': { advance: 0, balance: 100, tenor: 90, trigger: 'Documents against acceptance' },
+      'open-account': { advance: 0, balance: 100, tenor: 30, trigger: 'From invoice / shipment date' },
+      'custom': { advance: this.form.controls.advancePercent.value, balance: this.form.controls.balancePercent.value, tenor: this.form.controls.paymentTenorDays.value, trigger: this.form.controls.paymentTrigger.value },
+    };
+    const preset = presets[method];
+    const defaults = createDefaultQuotationDocument(
+      paymentMethodLabel(method),
+      this.form.controls.shipmentDays.value,
+      this.form.controls.tradeTerm.value,
+      method,
+    );
+    this.form.patchValue({
+      paymentTerms: paymentMethodLabel(method),
+      advancePercent: preset.advance,
+      balancePercent: preset.balance,
+      paymentTenorDays: preset.tenor,
+      paymentTrigger: preset.trigger,
+      lcOpeningDeadline: defaults.lcOpeningDeadline,
+      lcExpiryPlace: defaults.lcExpiryPlace,
+      presentationPeriod: defaults.presentationPeriod,
+      lcConfirmation: defaults.lcConfirmation,
+      confirmationCharges: defaults.confirmationCharges,
+      amendmentCharges: defaults.amendmentCharges,
+      documentDiscrepancyCharges: defaults.documentDiscrepancyCharges,
+      draftLcReview: defaults.draftLcReview,
+      lcGoverningRules: defaults.lcGoverningRules,
+      shipmentCommencement: defaults.shipmentCommencement,
+      latestShipmentDateText: defaults.latestShipmentDateText,
+      paymentSecurityTerms: defaults.paymentSecurityTerms,
+    }, { emitEvent: false });
+    this.recalculate();
+  }
 
   previewQuoteNumber(): string {
     return this.existingQuoteNumber || this.store.nextQuoteNumber(this.form.controls.quoteDate.value, this.form.controls.tradeTerm.value);
@@ -191,10 +270,32 @@ export class QuoteWizardPage implements OnInit {
     const currentRevision = this.form.controls.revisionNo.value;
     const currentDocumentStatus = this.form.controls.documentStatus.value;
     const currentBuyerRfqRef = this.form.controls.buyerRfqRef.value;
+    const generatedDocumentControls = {
+      proformaInvoiceNumber: this.form.controls.proformaInvoiceNumber.value,
+      proformaInvoiceDate: this.form.controls.proformaInvoiceDate.value,
+      proformaInvoiceStatus: this.form.controls.proformaInvoiceStatus.value,
+      salesContractNumber: this.form.controls.salesContractNumber.value,
+      salesContractDate: this.form.controls.salesContractDate.value,
+      salesContractStatus: this.form.controls.salesContractStatus.value,
+      commercialInvoiceNumber: this.form.controls.commercialInvoiceNumber.value,
+      commercialInvoiceDate: this.form.controls.commercialInvoiceDate.value,
+      commercialInvoiceStatus: this.form.controls.commercialInvoiceStatus.value,
+      packingListNumber: this.form.controls.packingListNumber.value,
+      packingListDate: this.form.controls.packingListDate.value,
+      packingListStatus: this.form.controls.packingListStatus.value,
+      purchaseOrderRef: this.form.controls.purchaseOrderRef.value,
+      billOfLadingNumber: this.form.controls.billOfLadingNumber.value,
+      vesselName: this.form.controls.vesselName.value,
+      voyageNumber: this.form.controls.voyageNumber.value,
+      containerNumbers: this.form.controls.containerNumbers.value,
+      consigneeDetails: this.form.controls.consigneeDetails.value,
+      notifyParty: this.form.controls.notifyParty.value,
+    };
     const defaults = createDefaultQuotationDocument(
       this.form.controls.paymentTerms.value,
       this.form.controls.shipmentDays.value,
       this.form.controls.tradeTerm.value,
+      this.form.controls.paymentMethod.value,
     );
     defaults.incotermNamedPlace = this.defaultNamedPlace();
     defaults.shipmentPlan = this.defaultShipmentPlan();
@@ -203,6 +304,7 @@ export class QuoteWizardPage implements OnInit {
       revisionNo: currentRevision,
       documentStatus: currentDocumentStatus,
       buyerRfqRef: currentBuyerRfqRef,
+      ...generatedDocumentControls,
     });
   }
 
@@ -269,7 +371,7 @@ export class QuoteWizardPage implements OnInit {
     const supplier = this.store.supplierPrices().find(item => item.productId === product?.id);
     const packageOption = this.store.packaging()[0];
     const lane = this.store.logistics()[0];
-    const documentDefaults = createDefaultQuotationDocument('100% Advance', settings.defaultShipmentDays, 'FOB');
+    const documentDefaults = createDefaultQuotationDocument('100% Advance TT', settings.defaultShipmentDays, 'FOB', 'advance-tt');
     this.form.patchValue({
       validityDays: settings.defaultValidityDays,
       shipmentDays: settings.defaultShipmentDays,
@@ -287,6 +389,14 @@ export class QuoteWizardPage implements OnInit {
       logisticsId: lane?.id ?? '', agentId: this.store.agents()[0]?.id ?? '',
       ...documentDefaults,
     }, { emitEvent: false });
+    this.form.patchValue({
+      proformaInvoiceNumber: this.defaultDocumentNumber('PI'),
+      salesContractNumber: this.defaultDocumentNumber('SC'),
+      commercialInvoiceNumber: this.defaultDocumentNumber('CI'),
+      packingListNumber: this.defaultDocumentNumber('PL'),
+      proformaInvoiceDate: todayIso(), salesContractDate: todayIso(),
+      commercialInvoiceDate: todayIso(), packingListDate: todayIso(),
+    }, { emitEvent: false });
     this.form.controls.incotermNamedPlace.setValue(this.defaultNamedPlace(), { emitEvent: false });
     this.form.controls.shipmentPlan.setValue('', { emitEvent: false });
   }
@@ -297,7 +407,7 @@ export class QuoteWizardPage implements OnInit {
     const source = this.store.findQuotation(editId || copyId || '');
     if (!source) return;
 
-    const document = source.document ?? createDefaultQuotationDocument(source.input.paymentTerms, source.input.shipmentDays, source.input.tradeTerm);
+    const document = source.document ?? createDefaultQuotationDocument(source.input.paymentTerms, source.input.shipmentDays, source.input.tradeTerm, source.input.paymentMethod);
     if (editId && this.store.isQuotationLocked(source)) {
       this.revisionSourceId = source.id;
       this.revisionRootId = source.revisionRootId || source.id;
@@ -338,6 +448,10 @@ export class QuoteWizardPage implements OnInit {
       productId: raw.productId, supplierPriceId: raw.supplierPriceId, packagingId: raw.packagingId,
       logisticsId: raw.logisticsId, containerType: raw.containerType, containers: raw.containers,
       netMtPerContainer: raw.netMtPerContainer, paymentTerms: raw.paymentTerms,
+      paymentMethod: raw.paymentMethod, advancePercent: raw.advancePercent, balancePercent: raw.balancePercent,
+      paymentTenorDays: raw.paymentTenorDays, paymentTrigger: raw.paymentTrigger,
+      paymentFinancingAnnualPercent: raw.paymentFinancingAnnualPercent,
+      paymentBankChargesUsd: raw.paymentBankChargesUsd, paymentRiskBufferPercent: raw.paymentRiskBufferPercent,
       shipmentDays: raw.shipmentDays, agentId: raw.agentId, spotExchangeRate: raw.spotExchangeRate,
       fxBufferPercent: raw.fxBufferPercent, profitMethod: raw.profitMethod,
       minimumProfitPercent: raw.minimumProfitPercent, targetProfitPercent: raw.targetProfitPercent,
@@ -355,6 +469,9 @@ export class QuoteWizardPage implements OnInit {
       priceBasis: raw.priceBasis, finalInvoiceBasis: raw.finalInvoiceBasis,
       shipmentPlan: raw.shipmentPlan || this.defaultShipmentPlan(), lcOpeningDeadline: raw.lcOpeningDeadline,
       partialShipment: raw.partialShipment, transshipment: raw.transshipment,
+      vesselService: raw.vesselService, containerStuffing: raw.containerStuffing,
+      stuffingDate: raw.stuffingDate, sealNumber: raw.sealNumber,
+      verifiedGrossMassKg: raw.verifiedGrossMassKg, etd: raw.etd, eta: raw.eta,
       shipmentCommencement: raw.shipmentCommencement, latestShipmentDateText: raw.latestShipmentDateText,
       lcExpiryPlace: raw.lcExpiryPlace, presentationPeriod: raw.presentationPeriod,
       lcConfirmation: raw.lcConfirmation, confirmationCharges: raw.confirmationCharges,
@@ -369,11 +486,44 @@ export class QuoteWizardPage implements OnInit {
       shipmentDocumentationTerms: raw.shipmentDocumentationTerms, paymentSecurityTerms: raw.paymentSecurityTerms,
       authenticityAcceptanceTerms: raw.authenticityAcceptanceTerms, securityNotice: raw.securityNotice,
       buyerAcknowledgement: raw.buyerAcknowledgement,
+      proformaInvoiceNumber: raw.proformaInvoiceNumber || this.defaultDocumentNumber('PI'),
+      proformaInvoiceDate: raw.proformaInvoiceDate || raw.quoteDate,
+      proformaInvoiceStatus: raw.proformaInvoiceStatus,
+      salesContractNumber: raw.salesContractNumber || this.defaultDocumentNumber('SC'),
+      salesContractDate: raw.salesContractDate || raw.quoteDate,
+      salesContractStatus: raw.salesContractStatus,
+      commercialInvoiceNumber: raw.commercialInvoiceNumber || this.defaultDocumentNumber('CI'),
+      commercialInvoiceDate: raw.commercialInvoiceDate || raw.quoteDate,
+      commercialInvoiceStatus: raw.commercialInvoiceStatus,
+      packingListNumber: raw.packingListNumber || this.defaultDocumentNumber('PL'),
+      packingListDate: raw.packingListDate || raw.quoteDate,
+      packingListStatus: raw.packingListStatus,
+      purchaseOrderRef: raw.purchaseOrderRef || 'N/A', billOfLadingNumber: raw.billOfLadingNumber,
+      vesselName: raw.vesselName, voyageNumber: raw.voyageNumber,
+      containerNumbers: raw.containerNumbers, consigneeDetails: raw.consigneeDetails,
+      notifyParty: raw.notifyParty,
     };
   }
 
   private refreshNamedPlace(): void {
     this.form.controls.incotermNamedPlace.setValue(this.defaultNamedPlace(), { emitEvent: false });
+  }
+
+  private applyTradeTerm(): void {
+    const defaults = createDefaultQuotationDocument(
+      this.form.controls.paymentTerms.value,
+      this.form.controls.shipmentDays.value,
+      this.form.controls.tradeTerm.value,
+      this.form.controls.paymentMethod.value,
+    );
+    this.form.patchValue({
+      incotermNamedPlace: this.defaultNamedPlace(),
+      freightValidity: defaults.freightValidity,
+      insuranceForCif: defaults.insuranceForCif,
+      taxesDuties: defaults.taxesDuties,
+      commercialConditions: defaults.commercialConditions,
+    }, { emitEvent: false });
+    this.recalculate();
   }
 
   private defaultNamedPlace(): string {
@@ -385,13 +535,21 @@ export class QuoteWizardPage implements OnInit {
   }
 
   private defaultShipmentPlan(): string {
-    const type = this.form.controls.containerType.value.startsWith("20'") ? '20 ft FCL' : '40 ft FCL';
+    const selected = this.form.controls.containerType.value;
+    if (selected === 'LCL') return `${this.form.controls.netMtPerContainer.value} MT LCL shipment, subject to final consolidation plan`;
+    const type = selected.startsWith("20'") ? '20 ft FCL' : '40 ft FCL';
     return `${this.form.controls.containers.value} x ${type}, subject to final loading plan`;
+  }
+
+  private defaultDocumentNumber(prefix: 'PI' | 'SC' | 'CI' | 'PL'): string {
+    const type = { PI: 'proforma', SC: 'sales-contract', CI: 'commercial-invoice', PL: 'packing-list' }[prefix] as
+      'proforma' | 'sales-contract' | 'commercial-invoice' | 'packing-list';
+    return deriveDocumentNumber(this.previewQuoteNumber(), type);
   }
 
   private validateCurrentStep(): boolean {
     const controlsByStep = [
-      ['quoteDate','validityDays','buyerId','tradeTerm','scenario','quoteCurrency','paymentTerms','shipmentDays'],
+      ['quoteDate','validityDays','buyerId','tradeTerm','scenario','quoteCurrency','paymentMethod','paymentTerms','advancePercent','balancePercent','paymentTenorDays','paymentTrigger','shipmentDays'],
       ['productId','supplierPriceId','packagingId'],
       ['logisticsId','containerType','containers','netMtPerContainer'],
       ['agentId','spotExchangeRate','fxBufferPercent','profitMethod','minimumProfitPercent','targetProfitPercent','premiumProfitPercent','contingencyPercent','bankCostPercent','priceRoundingUsdPerMt'],

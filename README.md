@@ -33,13 +33,22 @@ The app does **not** remember the file handle in browser storage. After a browse
 - No IndexedDB or localStorage for business records
 - Product, supplier/mill, packaging, logistics, commission-agent and buyer records
 - PKR cost entry with automatic USD conversion and FX safety buffer
-- LOCAL, EXW, FCA, FOB, CFR and CIF calculations
+- LOCAL, EXW, FCA, FOB, CFR, CNF (CFR cost basis), CIF, DAP and DDP calculations
+- DAP destination-delivery and DDP import-clearance, duty and tax costing
+- 20-foot/40-foot FCL and CBM/MT/minimum-basis LCL freight calculations
+- Product crop year and MOQ controls
+- PP, BOPP, non-woven, jute and master-bag packaging with private-label/OEM controls
+- Structured 100% Advance TT, TT, LC at Sight, Usance LC, CAD, D/P, D/A and Open Account terms
+- Payment tenor, financing, bank-charge and risk-buffer costing
+- Stuffing location/date, seal number, VGM, ETD/ETA, POL/POD, transshipment and direct-vessel controls
 - Minimum, target and premium profit scenarios
 - Commission as invoice percentage, USD/MT or fixed/container
 - Container weight and volume planning checks
 - Automatic warnings for missing/expired rates and below-break-even target prices
 - Saved quotation history with edit, duplicate, status and delete actions
 - Four-page Avena standard export quotation print/PDF view, matching the supplied company quotation format
+- Dedicated Proforma Invoice, Sales Contract, Commercial Invoice and Packing List print/PDF modes
+- Independent document numbers, dates, Draft/Final status, shipment references and mode-specific pre-PDF checks
 - Editable per-quotation commercial controls, LC/shipment controls, documents and terms & conditions
 - AAF-EQ-#### export quotation numbering with revision control
 - Commercial quotation and proforma-invoice print/PDF view
@@ -122,7 +131,7 @@ After deployment, open the HTTPS Netlify URL in Chrome or Edge and select your l
 4. Open **Master Data → Packaging** and enter actual packaging rates and confirmed dimensions.
 5. Open **Master Data → Logistics** and enter destination ports, charges, freight and validity.
 6. Create quotations, review the editable document controls, and resolve warnings before printing.
-7. Use the Standard Quotation preview to print/save the four-page PDF.
+7. Choose Quotation, Proforma Invoice, Sales Contract, Commercial Invoice or Packing List in the preview, then print/save the selected PDF.
 8. Use **Data File & Backups → Save backup copy** regularly.
 
 ## Important limitations

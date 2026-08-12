@@ -1,9 +1,14 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { QuotationRecord } from '../../core/models/domain.models';
+import { PrintableDocumentType, QuotationRecord } from '../../core/models/domain.models';
 import { AppStoreService } from '../../core/services/app-store.service';
 import { QuotationValidationService } from '../../core/services/quotation-validation.service';
+import {
+  documentDate as resolveDocumentDate,
+  documentNumber as resolveDocumentNumber,
+  documentStatus as resolveDocumentStatus,
+} from '../../shared/utils/document-identifiers';
 
 @Component({
   imports: [RouterLink, CurrencyPipe, DatePipe, DecimalPipe],
@@ -15,10 +20,10 @@ export class QuotationPrintPage implements OnInit {
   readonly store = inject(AppStoreService);
   private readonly validator = inject(QuotationValidationService);
   readonly quote = signal<QuotationRecord | null>(null);
-  readonly documentType = signal<'quotation' | 'proforma'>('quotation');
+  readonly documentType = signal<PrintableDocumentType>('quotation');
   readonly validationIssues = computed(() => {
     const record = this.quote();
-    return record ? this.validator.validateForPdf(record) : [];
+    return record ? this.validator.validateForDocument(record, this.documentType()) : [];
   });
   readonly validationErrors = computed(() => this.validationIssues().filter(item => item.level === 'error'));
   readonly validationWarnings = computed(() => this.validationIssues().filter(item => item.level === 'warning'));
@@ -30,7 +35,10 @@ export class QuotationPrintPage implements OnInit {
     this.quote.set(this.store.findQuotation(id) ?? null);
   }
 
-  setDocument(type: 'quotation' | 'proforma'): void { this.documentType.set(type); }
+  setDocument(type: PrintableDocumentType): void {
+    this.documentType.set(type);
+    this.validationMessage.set('');
+  }
   print(): void {
     const errors = this.validationErrors();
     if (errors.length) {
@@ -60,9 +68,16 @@ export class QuotationPrintPage implements OnInit {
     return value;
   }
 
-  piNumber(record: QuotationRecord): string {
-    const match = /(?:AAF-(?:EQ|LQ|EXP|LOC)-)(.+)$/.exec(record.quoteNumber);
-    return `AAF-PI-${match?.[1] ?? record.quoteNumber}`;
+  documentNumber(record: QuotationRecord, type = this.documentType()): string {
+    return resolveDocumentNumber(record, type);
+  }
+
+  documentDate(record: QuotationRecord, type = this.documentType()): string {
+    return resolveDocumentDate(record, type);
+  }
+
+  documentStatus(record: QuotationRecord, type = this.documentType()): string {
+    return resolveDocumentStatus(record, type);
   }
 
   productDisplay(record: QuotationRecord): string {
@@ -77,7 +92,7 @@ export class QuotationPrintPage implements OnInit {
   }
 
   destinationPort(record: QuotationRecord): string {
-    return record.input.tradeTerm === 'CFR' || record.input.tradeTerm === 'CIF'
+    return ['CFR', 'CNF', 'CIF', 'DAP', 'DDP'].includes(record.input.tradeTerm)
       ? record.snapshots.logistics.portOfDischarge || 'N/A'
       : 'N/A';
   }
@@ -85,7 +100,8 @@ export class QuotationPrintPage implements OnInit {
   incotermText(record: QuotationRecord): string {
     if (record.input.tradeTerm === 'LOCAL') return `Local Delivery — ${record.document.incotermNamedPlace || record.snapshots.logistics.portOfDischarge}`;
     const place = record.document.incotermNamedPlace || this.fallbackNamedPlace(record);
-    const carrierNote = ['FOB', 'CFR', 'CIF'].includes(record.input.tradeTerm)
+    if (record.input.tradeTerm === 'CNF') return `CNF ${place} — commercial shorthand; CFR cost basis`;
+    const carrierNote = ['FOB', 'CFR', 'CIF', 'DAP', 'DDP'].includes(record.input.tradeTerm)
       ? ' (Subject to approval from shipping line)'
       : '';
     return `${record.input.tradeTerm} ${place} - Incoterms 2020${carrierNote}`;
@@ -93,6 +109,7 @@ export class QuotationPrintPage implements OnInit {
 
   shipmentPlan(record: QuotationRecord): string {
     if (record.document.shipmentPlan) return record.document.shipmentPlan;
+    if (record.input.containerType === 'LCL') return `${record.calculation.loading.totalNetMt} MT LCL, subject to final consolidation plan`;
     const size = record.input.containerType.startsWith("20'") ? '20 ft FCL' : '40 ft FCL';
     return `${record.input.containers} x ${size}, subject to final loading plan`;
   }
@@ -106,6 +123,38 @@ export class QuotationPrintPage implements OnInit {
 
   approxGrossWeight(record: QuotationRecord): number {
     return record.snapshots.packaging.approxGrossWeightKg || record.snapshots.packaging.retailBagKg;
+  }
+
+  tareWeight(record: QuotationRecord): number {
+    return record.calculation.loading.totalPackagingTareKg;
+  }
+
+  grossWeight(record: QuotationRecord): number {
+    return record.calculation.loading.totalNetKg + this.tareWeight(record);
+  }
+
+  packageCount(record: QuotationRecord): number {
+    const loading = record.calculation.loading;
+    return loading.totalMasterBags || loading.totalCartons || loading.totalBags;
+  }
+
+  packageType(record: QuotationRecord): string {
+    const loading = record.calculation.loading;
+    if (loading.totalMasterBags) return 'Master Bags';
+    if (loading.totalCartons) return 'Cartons';
+    return 'Bags';
+  }
+
+  packageDimensions(record: QuotationRecord): string {
+    const packaging = record.snapshots.packaging;
+    if (packaging.lengthCm <= 0 || packaging.widthCm <= 0 || packaging.heightCm <= 0) return 'N/A';
+    return `${packaging.lengthCm} x ${packaging.widthCm} x ${packaging.heightCm} cm`;
+  }
+
+  consignee(record: QuotationRecord): string {
+    return record.document.consigneeDetails?.trim()
+      || [record.snapshots.buyer.companyName, record.snapshots.buyer.address, record.snapshots.buyer.city, record.snapshots.buyer.country]
+        .filter(Boolean).join(', ');
   }
 
   percent(value: number, suffix = ' maximum'): string {

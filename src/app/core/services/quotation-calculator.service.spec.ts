@@ -35,6 +35,14 @@ function input(overrides: Partial<QuotationInput> = {}): QuotationInput {
     containers: 2,
     netMtPerContainer: 10,
     paymentTerms: '100% Advance',
+    paymentMethod: 'advance-tt',
+    advancePercent: 100,
+    balancePercent: 0,
+    paymentTenorDays: 0,
+    paymentTrigger: 'Before production',
+    paymentFinancingAnnualPercent: 0,
+    paymentBankChargesUsd: 0,
+    paymentRiskBufferPercent: 0,
     shipmentDays: 10,
     agentId: 'agent-none',
     spotExchangeRate: 300,
@@ -74,6 +82,7 @@ function lookups(): CalculationLookups {
     gmoStatus: 'Non-GMO',
     referenceSample: 'REF-1',
     cropYear: '2025/26',
+    moqMt: 0,
     hsCode: '1006',
     origin: 'Pakistan',
     notes: '',
@@ -99,9 +108,14 @@ function lookups(): CalculationLookups {
     code: '10KG-X2',
     description: '2 x 10 kg carton',
     bagType: 'Bag',
+    brandingType: 'Plain / Generic',
+    outerPackType: 'Carton',
     retailBagKg: 10,
     bagsPerCarton: 2,
     cartonNetKg: 20,
+    bagsPerMasterBag: 0,
+    masterBagRatePkr: 0,
+    masterBagTareKg: 0,
     approxGrossWeightKg: 21.2,
     printing: 'Printed',
     artworkReference: 'ART-1',
@@ -144,8 +158,14 @@ function lookups(): CalculationLookups {
     },
     oceanFreightUsd: 1_000,
     freightSurchargeUsd: 100,
+    lclFreightUsdPerCbm: 0,
+    lclFreightUsdPerMt: 0,
+    minimumLclFreightUsd: 0,
     fixedInsuranceUsd: 50,
     insurancePercentOfCfr: 1,
+    destinationDeliveryUsd: 0,
+    destinationCustomsClearanceUsd: 0,
+    destinationDutiesTaxesUsd: 0,
     shippingLine: 'Test Line',
     forwarder: 'Test Forwarder',
     transitDays: 10,
@@ -243,6 +263,7 @@ describe('QuotationCalculatorService', () => {
       ['FCA', 9_649.473_684],
       ['FOB', 9_866.315_789],
       ['CFR', 12_066.315_789],
+      ['CNF', 12_066.315_789],
       ['CIF', 12_286.978_947],
     ] satisfies Array<[TradeTerm, number]>)('selects the correct %s cost stack', (tradeTerm, expectedCost) => {
       const result = calculator.calculate(input({ tradeTerm }), lookups());
@@ -263,6 +284,28 @@ describe('QuotationCalculatorService', () => {
       expect(result.costs.freightUsd).toBe(0);
       expect(result.costs.fixedInsuranceUsd).toBe(0);
       expect(result.warnings).not.toContain('Ocean freight is zero for a CFR/CIF quotation.');
+    });
+
+    it('adds destination carriage for DAP and import clearance, duties, and taxes for DDP', () => {
+      const data = lookups();
+      data.logistics.destinationDeliveryUsd = 500;
+      data.logistics.destinationCustomsClearanceUsd = 100;
+      data.logistics.destinationDutiesTaxesUsd = 200;
+
+      const dap = calculator.calculate(input({ tradeTerm: 'DAP' }), data);
+      const ddp = calculator.calculate(input({ tradeTerm: 'DDP' }), data);
+
+      expect(dap.costs.destinationDeliveryUsd).toBe(1_000);
+      expect(dap.costs.dapCostUsd).toBeCloseTo(dap.costs.cfrCostUsd + 1_000, 10);
+      expect(ddp.costs.destinationCustomsClearanceUsd).toBe(200);
+      expect(ddp.costs.destinationDutiesTaxesUsd).toBe(400);
+      expect(ddp.costs.ddpCostUsd).toBeCloseTo(dap.costs.dapCostUsd + 600, 10);
+    });
+
+    it('identifies CNF as commercial shorthand while applying CFR costing', () => {
+      const result = calculator.calculate(input({ tradeTerm: 'CNF' }), lookups());
+      expect(result.costs.selectedTermCostUsd).toBeCloseTo(result.costs.cfrCostUsd, 10);
+      expect(result.warnings).toContain('CNF is commercial shorthand; the quotation uses a CFR Incoterms 2020 cost basis.');
     });
   });
 
@@ -382,7 +425,7 @@ describe('QuotationCalculatorService', () => {
       data.logistics.insurancePercentOfCfr = 0;
       const result = calculator.calculate(input({ tradeTerm: 'CIF' }), data);
 
-      expect(result.warnings).toContain('Ocean freight is zero for a CFR/CIF quotation.');
+      expect(result.warnings).toContain('Freight is zero for a CFR/CNF/CIF/DAP/DDP quotation.');
       expect(result.warnings).toContain('Insurance is zero for a CIF quotation.');
     });
   });
@@ -411,7 +454,35 @@ describe('QuotationCalculatorService', () => {
       expect(result.loading.weightUtilizationPercent).toBeLessThan(100);
       expect(result.loading.volumeUtilizationPercent).toBeGreaterThan(100);
       expect(result.loading.withinLimits).toBe(false);
-      expect(result.warnings).toContain('Carton volume exceeds the usable container volume.');
+      expect(result.warnings).toContain('Outer-pack volume exceeds the usable container volume.');
+    });
+
+    it('calculates LCL freight by the greater CBM, MT, or minimum basis without FCL limits', () => {
+      const data = lookups();
+      data.logistics.containerType = 'LCL';
+      data.logistics.lclFreightUsdPerCbm = 100;
+      data.logistics.lclFreightUsdPerMt = 50;
+      data.logistics.minimumLclFreightUsd = 500;
+      const result = calculator.calculate(input({ containerType: 'LCL' }), data);
+
+      expect(result.costs.freightUsd).toBe(4_200);
+      expect(result.loading.payloadLimitKg).toBe(0);
+      expect(result.loading.usableVolumeCbm).toBe(0);
+      expect(result.loading.withinLimits).toBe(true);
+    });
+
+    it('calculates master-bag counts, cost, and tare weight', () => {
+      const data = lookups();
+      data.packaging.outerPackType = 'Master Bag';
+      data.packaging.bagsPerMasterBag = 10;
+      data.packaging.masterBagRatePkr = 50;
+      data.packaging.masterBagTareKg = 0.5;
+      const result = calculator.calculate(input(), data);
+
+      expect(result.loading.totalCartons).toBe(0);
+      expect(result.loading.totalMasterBags).toBe(200);
+      expect(result.loading.totalPackagingTareKg).toBe(300);
+      expect(result.costs.packagingPkr).toBe(30_000);
     });
   });
 
@@ -420,6 +491,32 @@ describe('QuotationCalculatorService', () => {
       const result = calculator.calculate(input({ buyerTargetUsdPerMt: 450 }), lookups());
       expect(result.buyerTargetDifferenceUsdPerMt).toBeCloseTo(450 - result.quotedPriceUsdPerMt, 10);
       expect(result.warnings).toContain('Buyer target price is below break-even.');
+    });
+
+    it('warns when the order quantity is below the product MOQ', () => {
+      const data = lookups();
+      data.product.moqMt = 25;
+      const result = calculator.calculate(input(), data);
+      expect(result.warnings).toContain('Order quantity is below the product MOQ of 25 MT.');
+    });
+
+    it('includes tenor financing, bank charges, and payment-risk buffer in break-even cost', () => {
+      const result = calculator.calculate(input({
+        paymentMethod: 'usance-lc',
+        paymentTenorDays: 90,
+        paymentFinancingAnnualPercent: 10,
+        paymentBankChargesUsd: 100,
+        paymentRiskBufferPercent: 2,
+      }), lookups());
+      const baseCost = result.costs.fobCostUsd;
+
+      expect(result.costs.paymentFinancingUsd).toBeCloseTo(baseCost * 0.1 * 90 / 365, 10);
+      expect(result.costs.paymentRiskBufferUsd).toBeCloseTo(baseCost * 0.02, 10);
+      expect(result.costs.paymentCostsUsd).toBeCloseTo(
+        result.costs.paymentFinancingUsd + 100 + result.costs.paymentRiskBufferUsd,
+        10,
+      );
+      expect(result.costs.selectedTermCostUsd).toBeCloseTo(baseCost + result.costs.paymentCostsUsd, 10);
     });
 
     it('warns about expired rates, placeholder ports, FCA review, and container mismatches', () => {
