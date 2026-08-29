@@ -127,12 +127,12 @@ export const demoPackaging: PackagingOption[] = [
   packagingDefaults({
     id: 'pack-25kg', code: '25KG-BAG', description: 'BOPP Laminated 25 kg bags',
     retailBagKg: 25, bagsPerCarton: 1, cartonNetKg: 25, approxGrossWeightKg: 25,
-    bagTareGrams: 90, cartonTareKg: 0, lengthCm: 75, widthCm: 45, heightCm: 15,
+    bagTareGrams: 90, cartonTareKg: 0, lengthCm: 75, widthCm: 45, heightCm: 15, volumeCbm: 0.03,
   }),
   packagingDefaults({
     id: 'pack-50kg', code: '50KG-BAG', description: 'Single 50 kg bag',
     retailBagKg: 50, bagsPerCarton: 1, cartonNetKg: 50, approxGrossWeightKg: 50,
-    bagTareGrams: 130, cartonTareKg: 0, lengthCm: 95, widthCm: 55, heightCm: 18,
+    bagTareGrams: 130, cartonTareKg: 0, lengthCm: 95, widthCm: 55, heightCm: 18, volumeCbm: 0.06,
   }),
 ];
 

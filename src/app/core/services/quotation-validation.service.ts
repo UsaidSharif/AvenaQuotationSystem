@@ -47,6 +47,16 @@ export class QuotationValidationService {
     const document = record.document;
     const calc = record.calculation;
     const term = record.input.tradeTerm;
+    const advancePercent = Number(record.input.advancePercent);
+    const balancePercent = Number(record.input.balancePercent);
+    const selectedProfitPercent = record.input.scenario === 'Minimum'
+      ? Number(record.input.minimumProfitPercent)
+      : record.input.scenario === 'Premium'
+        ? Number(record.input.premiumProfitPercent)
+        : Number(record.input.targetProfitPercent);
+    const commissionRate = record.snapshots.agent.method === 'invoice-percent'
+      ? Number(record.snapshots.agent.rate)
+      : 0;
 
     if (!record.quoteNumber?.trim()) add('quote-number', 'error', 'Quotation number is missing.');
     if (!document.revisionNo?.trim()) add('revision-number', 'error', 'Revision number is missing.');
@@ -72,7 +82,8 @@ export class QuotationValidationService {
     if (!record.input.paymentTerms?.trim()) add('payment-terms', 'error', 'Payment terms are missing.');
     if (!record.input.paymentMethod) add('payment-method', 'error', 'Select a structured payment method.');
     const paymentTotal = Number(record.input.advancePercent || 0) + Number(record.input.balancePercent || 0);
-    if (Math.abs(paymentTotal - 100) > 0.001) {
+    if (![advancePercent, balancePercent].every(value => Number.isFinite(value) && value >= 0 && value <= 100)
+      || Math.abs(paymentTotal - 100) > 0.001) {
       add('payment-split', 'error', 'Advance and balance percentages must total 100%.');
     }
     if (record.input.paymentMethod === 'advance-tt' && record.input.advancePercent !== 100) {
@@ -115,10 +126,27 @@ export class QuotationValidationService {
     if (term === 'DDP' && calc.costs.destinationCustomsClearanceUsd + calc.costs.destinationDutiesTaxesUsd <= 0) {
       add('ddp-import-costs', 'error', 'DDP requires confirmed import-clearance, duty and tax costs.');
     }
+    if (record.input.fxBufferPercent < 0 || record.input.fxBufferPercent > 25) {
+      add('fx-buffer', 'error', 'FX safety buffer must be between 0% and 25%.');
+    }
+    if (record.snapshots.agent.method === 'invoice-percent'
+      && (!Number.isFinite(commissionRate) || commissionRate < 0 || commissionRate >= 100)) {
+      add('commission-rate', 'error', 'Invoice commission must be between 0% and below 100%.');
+    }
+    if (!Number.isFinite(selectedProfitPercent) || selectedProfitPercent < 0) {
+      add('profit-rate', 'error', 'Selected profit percentage is invalid.');
+    }
+    if (record.input.profitMethod === 'margin'
+      && selectedProfitPercent + commissionRate >= 100) {
+      add('profit-commission-rate', 'error', 'Margin plus invoice commission must be below 100%.');
+    }
     if (!calc.loading.withinLimits) add('container-load', 'error', 'Planned cargo exceeds the container weight or volume planning limit.');
 
     if (this.isExpired(record.snapshots.supplier.validTo, record.input.quoteDate)) {
       add('supplier-expired', 'error', 'Supplier price validity has expired for the quotation date.');
+    }
+    if (this.isNotYetValid(record.snapshots.supplier.validFrom, record.input.quoteDate)) {
+      add('supplier-not-yet-valid', 'error', 'Supplier price is not yet valid for the quotation date.');
     }
     if (this.isExpired(record.snapshots.packaging.validTo, record.input.quoteDate)) {
       add('packaging-expired', 'error', 'Packaging price validity has expired for the quotation date.');
@@ -260,6 +288,13 @@ export class QuotationValidationService {
     const expiry = new Date(`${validTo}T23:59:59`);
     const quoteDate = new Date(`${quoteDateValue}T00:00:00`);
     return Number.isFinite(expiry.getTime()) && Number.isFinite(quoteDate.getTime()) && expiry < quoteDate;
+  }
+
+  private isNotYetValid(validFrom: string, quoteDateValue: string): boolean {
+    if (!validFrom || !quoteDateValue) return false;
+    const start = new Date(`${validFrom}T00:00:00`);
+    const quoteDate = new Date(`${quoteDateValue}T00:00:00`);
+    return Number.isFinite(start.getTime()) && Number.isFinite(quoteDate.getTime()) && start > quoteDate;
   }
 
   private slug(value: string): string {

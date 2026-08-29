@@ -32,6 +32,11 @@ function normalizeProduct(item: Product): Product {
 }
 
 function normalizePackaging(item: PackagingOption): PackagingOption {
+  const legacySingleBagVolumeCbm = item.volumeCbm == null
+    && (item.outerPackType === 'None' || item.bagsPerCarton <= 1)
+    && Number(item.retailBagKg) > 0
+    ? Number(item.retailBagKg) / 50 * 0.06
+    : 0;
   return {
     ...item,
     bagType: item.bagType ?? item.description ?? 'As agreed',
@@ -40,6 +45,7 @@ function normalizePackaging(item: PackagingOption): PackagingOption {
     bagsPerMasterBag: item.bagsPerMasterBag ?? 0,
     masterBagRatePkr: item.masterBagRatePkr ?? 0,
     masterBagTareKg: item.masterBagTareKg ?? 0,
+    volumeCbm: item.volumeCbm ?? legacySingleBagVolumeCbm,
     approxGrossWeightKg: item.approxGrossWeightKg ?? item.retailBagKg,
     printing: item.printing ?? 'As agreed',
     artworkReference: item.artworkReference ?? 'N/A',

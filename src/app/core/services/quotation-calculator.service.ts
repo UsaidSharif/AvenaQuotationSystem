@@ -77,6 +77,9 @@ export class QuotationCalculatorService {
       lengthCm: nonNegative(data.packaging.lengthCm, 'Carton length'),
       widthCm: nonNegative(data.packaging.widthCm, 'Carton width'),
       heightCm: nonNegative(data.packaging.heightCm, 'Carton height'),
+      volumeCbm: data.packaging.volumeCbm == null
+        ? 0
+        : nonNegative(data.packaging.volumeCbm, 'Outer package volume'),
     };
     const rawOrigin = data.logistics.originCharges;
     const logistics: LogisticsRate = {
@@ -131,8 +134,18 @@ export class QuotationCalculatorService {
     const totalPackagingTareKg = (totalBags * packaging.bagTareGrams / 1000) + (outerPackCount * outerPackTareKg);
     const grossCargoPerContainerKg = input.containers > 0
       ? (totalNetKg + totalPackagingTareKg) / input.containers : 0;
-    const cartonVolumeCbm = packaging.lengthCm * packaging.widthCm * packaging.heightCm / 1_000_000;
-    const totalCargoVolumeCbm = outerPackCount * cartonVolumeCbm;
+    const dimensionVolumeCbm = packaging.lengthCm * packaging.widthCm * packaging.heightCm / 1_000_000;
+    const declaredVolumeCbm = packaging.volumeCbm ?? 0;
+    const isBagOnly = outerPackType === 'None' || (outerPackType === 'Carton' && packaging.bagsPerCarton <= 1);
+    const estimatedSingleBagVolumeCbm = packaging.retailBagKg > 0
+      ? packaging.retailBagKg / 50 * 0.06
+      : 0;
+    const outerPackVolumeCbm = declaredVolumeCbm > 0
+      ? declaredVolumeCbm
+      : isBagOnly && estimatedSingleBagVolumeCbm > 0
+        ? estimatedSingleBagVolumeCbm
+        : dimensionVolumeCbm;
+    const totalCargoVolumeCbm = outerPackCount * outerPackVolumeCbm;
     const cargoVolumePerContainerCbm = input.containers > 0
       ? totalCargoVolumeCbm / input.containers : 0;
 
@@ -141,7 +154,7 @@ export class QuotationCalculatorService {
       ? { payloadKg: 0, usableVolumeCbm: 0 }
       : input.containerType === "40' Dry FCL"
       ? { payloadKg: 26_500, usableVolumeCbm: 60.3 }
-      : { payloadKg: 28_000, usableVolumeCbm: 29.7 };
+      : { payloadKg: 28_000, usableVolumeCbm: 33 };
     const bagsPerOuterPack = outerPackType === 'Carton'
       ? packaging.bagsPerCarton
       : outerPackType === 'Master Bag'
@@ -154,7 +167,7 @@ export class QuotationCalculatorService {
       + (bagsPerOuterPack * packaging.bagTareGrams / 1000)
       + outerPackTareKg;
     const maxByWeight = !isLcl && grossCartonWeightKg > 0 ? Math.floor(container.payloadKg / grossCartonWeightKg) : 0;
-    const maxByVolume = !isLcl && cartonVolumeCbm > 0 ? Math.floor(container.usableVolumeCbm / cartonVolumeCbm) : 0;
+    const maxByVolume = !isLcl && outerPackVolumeCbm > 0 ? Math.floor(container.usableVolumeCbm / outerPackVolumeCbm) : 0;
     const recommendedMaxCartons = Math.min(maxByWeight || 0, maxByVolume || 0);
     const recommendedMaxNetMt = recommendedMaxCartons * outerPackNetKg / 1000;
     const weightUtilizationPercent = container.payloadKg > 0 ? grossCargoPerContainerKg / container.payloadKg * 100 : 0;
@@ -164,6 +177,7 @@ export class QuotationCalculatorService {
     const calculatedFxRate = input.spotExchangeRate * (1 - input.fxBufferPercent / 100);
     const quotationFxRate = Number.isFinite(calculatedFxRate) && calculatedFxRate > 0 ? calculatedFxRate : 0;
     if (quotationFxRate <= 0) warnings.push('Enter a valid PKR/USD exchange rate and FX safety buffer.');
+    if (input.fxBufferPercent > 25) warnings.push('FX safety buffer should be between 0% and 25%.');
 
     const productAndProcessingPkr = (
       supplier.ricePricePkrPerMt + supplier.processingPkrPerMt + supplier.otherPkrPerMt
@@ -214,19 +228,21 @@ export class QuotationCalculatorService {
     const destinationDutiesTaxesUsd = logistics.destinationDutiesTaxesUsd * input.containers;
     const dapCostUsd = cfrCostUsd + destinationDeliveryUsd;
     const ddpCostUsd = dapCostUsd + destinationCustomsClearanceUsd + destinationDutiesTaxesUsd;
-    const selectedTermBaseCostUsd = input.tradeTerm === 'CIF'
-      ? cifCostUsd
-      : input.tradeTerm === 'CFR' || input.tradeTerm === 'CNF'
-        ? cfrCostUsd
-        : input.tradeTerm === 'DAP'
-          ? dapCostUsd
-          : input.tradeTerm === 'DDP'
-            ? ddpCostUsd
-            : input.tradeTerm === 'EXW'
-              ? exwCostUsd
-              : input.tradeTerm === 'FCA'
-                ? fcaCostUsd
-                : fobCostUsd;
+    const selectedTermBaseCostUsd = input.tradeTerm === 'LOCAL'
+      ? exwCostUsd
+      : input.tradeTerm === 'CIF'
+        ? cifCostUsd
+        : input.tradeTerm === 'CFR' || input.tradeTerm === 'CNF'
+          ? cfrCostUsd
+          : input.tradeTerm === 'DAP'
+            ? dapCostUsd
+            : input.tradeTerm === 'DDP'
+              ? ddpCostUsd
+              : input.tradeTerm === 'EXW'
+                ? exwCostUsd
+                : input.tradeTerm === 'FCA'
+                  ? fcaCostUsd
+                  : fobCostUsd;
     const paymentFinancingUsd = selectedTermBaseCostUsd
       * input.paymentFinancingAnnualPercent / 100
       * input.paymentTenorDays / 365;
@@ -261,7 +277,11 @@ export class QuotationCalculatorService {
 
     const rounding = Math.max(0.01, input.priceRoundingUsdPerMt || 1);
     const rawPriceUsdPerMt = totalNetMt > 0 ? rawInvoiceUsd / totalNetMt : 0;
-    const quotedPriceUsdPerMt = Math.round(rawPriceUsdPerMt / rounding) * rounding;
+    // Commercial rounding must not reduce the price below the calculated target.
+    const roundedQuotient = Math.ceil((rawPriceUsdPerMt / rounding) - 1e-9);
+    const quotedPriceUsdPerMt = Number.isFinite(roundedQuotient)
+      ? Number((Math.max(0, roundedQuotient) * rounding).toFixed(10))
+      : 0;
     const invoiceTotalUsd = quotedPriceUsdPerMt * totalNetMt;
     const commissionUsd = agent.method === 'invoice-percent' ? invoiceTotalUsd * commissionRate : fixedCommissionUsd;
     const netProfitUsd = invoiceTotalUsd - selectedTermCostUsd - commissionUsd;
@@ -305,6 +325,17 @@ export class QuotationCalculatorService {
     if (this.isExpired(supplier.validTo, quoteDate)) warnings.push('Supplier price validity has expired.');
     if (this.isExpired(packaging.validTo, quoteDate)) warnings.push('Packaging price validity has expired.');
     if (this.isExpired(logistics.validTo, quoteDate)) warnings.push('Logistics rate validity has expired.');
+    if (this.isNotYetValid(supplier.validFrom, quoteDate)) warnings.push('Supplier price is not yet valid for the quotation date.');
+    const paymentTotal = input.advancePercent + input.balancePercent;
+    if (input.advancePercent > 100 || input.balancePercent > 100 || Math.abs(paymentTotal - 100) > 0.001) {
+      warnings.push('Advance and balance percentages must total 100%.');
+    }
+    if (agent.method === 'invoice-percent' && agent.rate >= 100) {
+      warnings.push('Invoice commission must be below 100%.');
+    }
+    if (input.profitMethod === 'margin' && profitRate >= 1) {
+      warnings.push('Margin profit must be below 100%.');
+    }
     if (input.profitMethod === 'margin' && profitRate + commissionRate >= 0.95) {
       warnings.push('Profit margin plus commission is too high to calculate safely.');
     }
@@ -341,5 +372,11 @@ export class QuotationCalculatorService {
     if (!value) return false;
     const expiry = new Date(`${value}T23:59:59`);
     return Number.isFinite(expiry.getTime()) && expiry < quoteDate;
+  }
+
+  private isNotYetValid(value: string, quoteDate: Date): boolean {
+    if (!value || !Number.isFinite(quoteDate.getTime())) return false;
+    const start = new Date(`${value}T00:00:00`);
+    return Number.isFinite(start.getTime()) && start > quoteDate;
   }
 }

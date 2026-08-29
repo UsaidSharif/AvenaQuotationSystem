@@ -135,6 +135,8 @@ export interface PackagingOption extends BaseRecord {
   lengthCm: number;
   widthCm: number;
   heightCm: number;
+  /** Optional measured volume of one outer package. When present, it takes precedence over dimensions. */
+  volumeCbm?: number;
   supplier: string;
   validTo: string;
 }

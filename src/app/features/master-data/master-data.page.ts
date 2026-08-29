@@ -61,7 +61,7 @@ export class MasterDataPage {
       palletization: "Cargo palletized on the floor of 20’ FCL container", cylinderPlateCharges: 'After the approval of design',
       specialPackingNotes: 'As per buyer’s requirement', packingCostBasis: 'Included only as stated in the final price except cylinder charges',
       bagRatePkr: 0, cartonRatePkr: 0, bagTareGrams: 0, cartonTareKg: 0,
-      lengthCm: 0, widthCm: 0, heightCm: 0, supplier: '', validTo: todayIso(),
+      lengthCm: 0, widthCm: 0, heightCm: 0, volumeCbm: 0, supplier: '', validTo: todayIso(),
       id: '', createdAt: '', updatedAt: '',
     });
     await this.saved(this.store.savePackaging(item));

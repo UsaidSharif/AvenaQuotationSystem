@@ -24,7 +24,7 @@ export class SettingsPage implements OnInit {
   });
 
   readonly defaultsForm = this.fb.nonNullable.group({
-    spotExchangeRate: [285, [Validators.required, Validators.min(1)]], fxBufferPercent: [2, Validators.min(0)],
+    spotExchangeRate: [285, [Validators.required, Validators.min(1)]], fxBufferPercent: [2, [Validators.required, Validators.min(0), Validators.max(25)]],
     minimumProfitPercent: [3, Validators.min(0)], targetProfitPercent: [5, Validators.min(0)], premiumProfitPercent: [8, Validators.min(0)],
     contingencyPercent: [1, Validators.min(0)], bankCostPercent: [0.5, Validators.min(0)], priceRoundingUsdPerMt: [1, Validators.min(0.01)],
     defaultValidityDays: [3, Validators.min(1)], defaultShipmentDays: [10, Validators.min(1)],

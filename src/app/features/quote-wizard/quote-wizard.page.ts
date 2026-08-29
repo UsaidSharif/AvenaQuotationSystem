@@ -557,12 +557,20 @@ export class QuoteWizardPage implements OnInit {
     ] as const;
     const names = controlsByStep[this.step()] ?? [];
     let valid = true;
+    let validationMessage = '';
     for (const name of names) {
       const control = this.form.controls[name];
       control.markAsTouched();
       if (control.invalid) valid = false;
     }
-    if (!valid) this.message.set('Please complete the highlighted fields.');
+    if (this.step() === 0) {
+      const paymentTotal = this.form.controls.advancePercent.value + this.form.controls.balancePercent.value;
+      if (Math.abs(paymentTotal - 100) > 0.001) {
+        valid = false;
+        validationMessage = 'Advance and balance percentages must total 100%.';
+      }
+    }
+    if (!valid) this.message.set(validationMessage || 'Please complete the highlighted fields.');
     else this.message.set('');
     return valid;
   }

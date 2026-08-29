@@ -108,4 +108,18 @@ describe('QuotationValidationService document modes', () => {
     record.document.qualityPackingInspectionTerms = '';
     expect(validator.errors(record, 'sales-contract').map(issue => issue.code)).toEqual(expect.arrayContaining(['commercial-terms', 'quality-terms']));
   });
+
+  it('blocks invalid payment splits, commission rates, and future supplier prices', () => {
+    const record = validRecord();
+    record.input.advancePercent = 60;
+    record.input.balancePercent = 30;
+    record.input.quoteDate = '2026-01-15';
+    record.snapshots.supplier.validFrom = '2026-02-01';
+    record.snapshots.agent.method = 'invoice-percent';
+    record.snapshots.agent.rate = 100;
+
+    const codes = validator.errors(record).map(issue => issue.code);
+
+    expect(codes).toEqual(expect.arrayContaining(['payment-split', 'commission-rate', 'supplier-not-yet-valid']));
+  });
 });

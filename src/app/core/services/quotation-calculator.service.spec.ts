@@ -234,7 +234,7 @@ describe('QuotationCalculatorService', () => {
       expect(result.loading.grossCargoPerContainerKg).toBe(10_600);
       expect(result.loading.cargoVolumePerContainerCbm).toBe(20);
       expect(result.loading.weightUtilizationPercent).toBeCloseTo(37.857_142_857, 8);
-      expect(result.loading.volumeUtilizationPercent).toBeCloseTo(67.340_067_34, 8);
+      expect(result.loading.volumeUtilizationPercent).toBeCloseTo(60.606_060_606, 8);
       expect(result.loading.withinLimits).toBe(true);
 
       expect(result.costs.productAndProcessingPkr).toBe(2_300_000);
@@ -255,6 +255,44 @@ describe('QuotationCalculatorService', () => {
       expect(result.loading.usableVolumeCbm).toBe(60.3);
       expect(result.loading.recommendedMaxCartons).toBeGreaterThan(0);
     });
+
+    it('uses a 28 MT payload and approximately 33 CBM for a 20-foot container', () => {
+      const result = calculator.calculate(input(), lookups());
+
+      expect(result.loading.payloadLimitKg).toBe(28_000);
+      expect(result.loading.usableVolumeCbm).toBe(33);
+    });
+
+    it('uses the declared 50 kg bag volume instead of oversized legacy dimensions', () => {
+      const data = lookups();
+      data.packaging.retailBagKg = 50;
+      data.packaging.bagsPerCarton = 1;
+      data.packaging.cartonNetKg = 50;
+      data.packaging.cartonTareKg = 0;
+      data.packaging.volumeCbm = 0.06;
+
+      const result = calculator.calculate(input({ netMtPerContainer: 10 }), data);
+
+      expect(result.loading.cargoVolumePerContainerCbm).toBeCloseTo(12, 10);
+      expect(result.loading.recommendedMaxNetMt).toBeCloseTo(27.5, 10);
+    });
+
+    it('treats 25 kg bags with no outer covering as individual packages', () => {
+      const data = lookups();
+      data.packaging.outerPackType = 'None';
+      data.packaging.retailBagKg = 25;
+      data.packaging.bagsPerCarton = 0;
+      data.packaging.cartonNetKg = 0;
+      data.packaging.cartonTareKg = 0;
+      data.packaging.volumeCbm = undefined;
+
+      const result = calculator.calculate(input({ netMtPerContainer: 10 }), data);
+
+      expect(result.loading.totalBags).toBe(800);
+      expect(result.loading.totalCartons).toBe(0);
+      expect(result.loading.totalPackagingTareKg).toBe(0.1 * 800);
+      expect(result.loading.cargoVolumePerContainerCbm).toBeCloseTo(12, 10);
+    });
   });
 
   describe('trade terms', () => {
@@ -272,18 +310,12 @@ describe('QuotationCalculatorService', () => {
 
     it('calculates LOCAL pricing without freight or export-origin charges on a local lane', () => {
       const data = lookups();
-      zeroOriginCharges(data);
-      data.logistics.oceanFreightUsd = 0;
-      data.logistics.freightSurchargeUsd = 0;
-      data.logistics.fixedInsuranceUsd = 0;
-      data.logistics.insurancePercentOfCfr = 0;
+      const exwWithoutOrigin = calculator.calculate(input({ tradeTerm: 'EXW', quoteCurrency: 'PKR' }), data);
 
       const result = calculator.calculate(input({ tradeTerm: 'LOCAL', quoteCurrency: 'PKR' }), data);
 
-      expect(result.costs.selectedTermCostUsd).toBeCloseTo(result.costs.exwCostUsd, 10);
-      expect(result.costs.freightUsd).toBe(0);
-      expect(result.costs.fixedInsuranceUsd).toBe(0);
-      expect(result.warnings).not.toContain('Ocean freight is zero for a CFR/CIF quotation.');
+      expect(result.costs.selectedTermCostUsd).toBeCloseTo(exwWithoutOrigin.costs.selectedTermCostUsd, 10);
+      expect(result.costs.selectedTermCostUsd).toBeLessThan(result.costs.fobCostUsd);
     });
 
     it('adds destination carriage for DAP and import clearance, duties, and taxes for DDP', () => {
@@ -339,6 +371,13 @@ describe('QuotationCalculatorService', () => {
     it('falls back to a one-dollar increment when rounding is zero', () => {
       const result = calculator.calculate(input({ priceRoundingUsdPerMt: 0 }), lookups());
       expect(Number.isInteger(result.quotedPriceUsdPerMt)).toBe(true);
+    });
+
+    it('rounds upward instead of reducing the calculated selling price', () => {
+      const result = calculator.calculate(input({ priceRoundingUsdPerMt: 25 }), lookups());
+
+      expect(result.invoiceTotalUsd).toBeGreaterThanOrEqual(result.costs.selectedTermCostUsd + result.netProfitUsd);
+      expect(result.quotedPriceUsdPerMt).toBeGreaterThanOrEqual(525);
     });
   });
 
@@ -538,6 +577,21 @@ describe('QuotationCalculatorService', () => {
         'Logistics rate validity has expired.',
       ]));
       expect(fca.warnings).toContain('For FCA, confirm the exact named place and review which origin charges are included.');
+    });
+
+    it('warns when a supplier price starts after the quotation date', () => {
+      const data = lookups();
+      data.supplier.validFrom = '2026-02-01';
+
+      const result = calculator.calculate(input(), data);
+
+      expect(result.warnings).toContain('Supplier price is not yet valid for the quotation date.');
+    });
+
+    it('warns when payment percentages do not total 100%', () => {
+      const result = calculator.calculate(input({ advancePercent: 30, balancePercent: 30 }), lookups());
+
+      expect(result.warnings).toContain('Advance and balance percentages must total 100%.');
     });
   });
 

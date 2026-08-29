@@ -33,6 +33,7 @@
         <div class="field full"><label>Payment method *</label><select formControlName="paymentMethod">@for (option of paymentMethods; track option.value) {<option [value]="option.value">{{ option.label }}</option>}</select></div>
         <div class="field full"><label>Payment terms wording *</label><input formControlName="paymentTerms"><small>Printed on the quotation; edit when using split or custom terms.</small></div>
         <div class="field"><label>Advance %</label><input type="number" min="0" max="100" formControlName="advancePercent"></div><div class="field"><label>Balance %</label><input type="number" min="0" max="100" formControlName="balancePercent"></div>
+        @if (form.controls.advancePercent.value + form.controls.balancePercent.value !== 100) { <div class="field full"><small class="muted">Advance and balance percentages must total 100%.</small></div> }
         <div class="field"><label>Tenor / credit days</label><input type="number" min="0" formControlName="paymentTenorDays"></div><div class="field full"><label>Payment trigger</label><input formControlName="paymentTrigger"></div>
       </div>
       <details class="notice"><summary><strong>Trade and payment terminology</strong></summary><p><b>EXW</b> Ex Works · <b>FCA</b> Free Carrier · <b>FOB</b> Free On Board · <b>CFR</b> Cost and Freight · <b>CNF</b> commercial shorthand using CFR cost basis · <b>CIF</b> Cost, Insurance and Freight · <b>DAP</b> Delivered at Place, buyer handles import clearance · <b>DDP</b> Delivered Duty Paid, seller handles costed import clearance, duties and taxes.</p><p><b>TT</b> Telegraphic Transfer · <b>LC at Sight</b> payment against compliant LC documents at sight · <b>Usance LC</b> deferred LC payment · <b>CAD</b> Cash Against Documents · <b>D/P</b> Documents Against Payment · <b>D/A</b> Documents Against Acceptance · <b>Open Account</b> payment after an agreed credit period.</p></details>
@@ -96,7 +97,7 @@
       <div class="card-header"><div><h2>Currency, profit and commission</h2><span class="muted">These details stay internal and never appear on the client quotation.</span></div></div>
       <div class="card-body form-grid three">
         <div class="field"><label>Spot PKR per USD *</label><input type="number" min="1" step="0.01" formControlName="spotExchangeRate"></div>
-        <div class="field"><label>FX safety buffer % *</label><input type="number" min="0" step="0.1" formControlName="fxBufferPercent"></div>
+        <div class="field"><label>FX safety buffer % *</label><input type="number" min="0" max="25" step="0.1" formControlName="fxBufferPercent"></div>
         <div class="field"><label>Quotation FX rate</label><input class="readonly" readonly [value]="calculation()?.quotationFxRate | number:'1.2-2'"></div>
         <div class="field"><label>Profit method *</label><select formControlName="profitMethod"><option value="margin">Margin on sales</option><option value="markup">Markup on cost</option></select></div>
         <div class="field"><label>Minimum profit %</label><input type="number" min="0" step="0.1" formControlName="minimumProfitPercent"></div>
