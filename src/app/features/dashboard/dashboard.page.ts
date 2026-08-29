@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AppStoreService } from '../../core/services/app-store.service';
@@ -8,6 +8,7 @@ import { StatCard } from '../../shared/components/stat-card/stat-card';
   imports: [RouterLink, CurrencyPipe, DatePipe, DecimalPipe, StatCard],
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardPage {
   readonly store = inject(AppStoreService);

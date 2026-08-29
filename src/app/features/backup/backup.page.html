@@ -1,5 +1,5 @@
 <section class="page-heading">
-  <div><h1>Data File & Backups</h1><p>Your business database is a normal JSON file stored on this computer.</p></div>
+  <div><h1>Data File</h1><p>Manage the JSON file used by this browser session.</p></div>
 </section>
 
 @if (message()) { <div class="notice success page-message">{{ message() }}</div> }
@@ -9,61 +9,23 @@
   <div>
     <span class="file-kicker">CURRENT DATA FILE</span>
     <h2>{{ store.dataFileName() }}</h2>
-    <p>Every saved buyer, supplier price, quotation and setting is written directly to this file.</p>
+    <p>All buyers, prices, quotations and settings are saved directly to this file.</p>
     @if (store.lastSavedAt()) { <small>Last written: {{ store.lastSavedAt() }}</small> }
   </div>
   <div class="file-card-actions">
     <button class="button primary" type="button" [disabled]="busy()" (click)="saveNow()">Save now</button>
-    <button class="button" type="button" [disabled]="busy()" (click)="closeFile()">Close data file</button>
+    <button class="button" type="button" [disabled]="busy()" (click)="changeFile()">Change file</button>
+    <button class="button" type="button" [disabled]="busy()" (click)="closeFile()">Close file</button>
   </div>
 </section>
 
-<section class="card auto-backup-card">
-  <div>
-    <span class="file-kicker">AUTOMATIC BACKUPS</span>
-    @if (store.automaticBackupConfigured()) {
-      <h2>Enabled — {{ store.automaticBackupFolderName() }}</h2>
-      <p>Before the app overwrites your main data file, it saves a dated copy of the previous file into this folder.</p>
-      @if (store.lastAutomaticBackupAt()) { <small>Last automatic backup: {{ store.lastAutomaticBackupAt() }}</small> }
-    } @else {
-      <h2>Choose a backup folder</h2>
-      <p>Select a folder such as <strong>Documents\Avena Quotation System\Backups</strong>. The permission is kept only for the current app session; no folder handle is stored in the browser.</p>
-    }
-  </div>
-  <div class="file-card-actions">
-    <button class="button primary" type="button" [disabled]="busy()" (click)="configureAutomaticBackups()">{{ store.automaticBackupConfigured() ? 'Change backup folder' : 'Enable automatic backups' }}</button>
-    @if (store.automaticBackupConfigured()) { <button class="button" type="button" [disabled]="busy()" (click)="disableAutomaticBackups()">Disable</button> }
-  </div>
-</section>
-
-<div class="grid three backup-grid">
-  <section class="card card-body backup-card">
-    <div class="backup-icon">⧉</div>
-    <h2>Save backup copy</h2>
-    <p>Creates a second complete JSON copy. Save it on another drive or in a cloud-synced folder.</p>
-    <button class="button primary" type="button" [disabled]="busy()" (click)="saveBackupCopy()">Save backup copy</button>
-  </section>
-
-  <section class="card card-body backup-card">
-    <div class="backup-icon">▤</div>
-    <h2>Save quotation register</h2>
-    <p>Saves quotation history as a CSV file that opens in Excel.</p>
-    <button class="button" type="button" [disabled]="busy()" (click)="exportCsv()">Save quotation CSV</button>
-  </section>
-
-  <section class="card card-body backup-card">
-    <div class="backup-icon">↺</div>
-    <h2>Restore from backup</h2>
-    <p>Select an Avena JSON backup and replace the contents of the currently open data file.</p>
-    <label class="button file-button" [class.disabled]="busy()">Choose backup file<input type="file" accept="application/json,.json" [disabled]="busy()" (change)="restoreBackup($event)"></label>
-  </section>
-</div>
-
-<section class="card danger-zone">
-  <div><h2>Reset current file</h2><p>Replaces the current file with the original demonstration records and deletes saved quotations from that file.</p></div>
-  <button class="button danger" type="button" [disabled]="busy()" (click)="reset()">Reset to demo data</button>
+<section class="card card-body export-card">
+  <span class="file-kicker">OPTIONAL EXPORT</span>
+  <h2>Quotation register</h2>
+  <p>Save quotation history as a CSV file that opens in Excel.</p>
+  <button class="button" type="button" [disabled]="busy()" (click)="exportCsv()">Save quotation CSV</button>
 </section>
 
 <section class="notice warning offline-note">
-  <strong>No browser business database:</strong> this version does not use IndexedDB or localStorage for your company records. The installed PWA may still cache application files so the interface can work offline, but your business data remains in the selected JSON file.
+  <strong>Automatic reopening:</strong> this browser remembers the selected file permission when possible. If permission is cleared, use “Reconnect last file” on the start screen.
 </section>

@@ -10,11 +10,8 @@ type NativeFileHandle = {
   name: string;
   getFile(): Promise<File>;
   createWritable(): Promise<WritableFileStream>;
-};
-
-type NativeDirectoryHandle = {
-  name: string;
-  getFileHandle(name: string, options?: { create?: boolean }): Promise<NativeFileHandle>;
+  queryPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<PermissionState>;
+  requestPermission?: (descriptor?: { mode?: 'read' | 'readwrite' }) => Promise<PermissionState>;
 };
 
 type FilePickerType = {
@@ -33,21 +30,45 @@ type FileSystemWindow = Window & {
     excludeAcceptAllOption?: boolean;
     types?: FilePickerType[];
   }): Promise<NativeFileHandle>;
-  showDirectoryPicker(options?: { mode?: 'read' | 'readwrite' }): Promise<NativeDirectoryHandle>;
 };
 
 @Injectable({ providedIn: 'root' })
 export class LocalFileDataService {
+  private readonly handleDatabaseName = 'avena-file-access';
+  private readonly handleStoreName = 'handles';
+  private readonly handleKey = 'current-data-file';
   private readonly handle = signal<NativeFileHandle | null>(null);
-  private readonly backupDirectory = signal<NativeDirectoryHandle | null>(null);
 
   readonly fileName = signal('');
+  readonly rememberedFileName = signal('');
   readonly lastSavedAt = signal('');
   readonly connected = computed(() => this.handle() !== null);
   readonly supported = signal(this.detectSupport());
-  readonly automaticBackupConfigured = computed(() => this.backupDirectory() !== null);
-  readonly automaticBackupFolderName = computed(() => this.backupDirectory()?.name ?? '');
-  readonly lastAutomaticBackupAt = signal('');
+
+  async restoreDataFile(requestPermission = false): Promise<BackupBundle | null> {
+    if (!this.supported()) return null;
+    const handle = await this.readStoredHandle();
+    if (!handle) return null;
+    this.rememberedFileName.set(handle.name);
+    try {
+      const permission = await handle.queryPermission?.({ mode: 'readwrite' });
+      if (permission !== 'granted' && requestPermission && handle.requestPermission) {
+        const requested = await handle.requestPermission({ mode: 'readwrite' });
+        if (requested !== 'granted') return null;
+      } else if (permission !== 'granted') {
+        return null;
+      }
+      const file = await handle.getFile();
+      const bundle = this.parseBundle(await file.text());
+      this.handle.set(handle);
+      this.fileName.set(handle.name);
+      this.rememberedFileName.set(handle.name);
+      this.lastSavedAt.set(bundle.exportedAt || '');
+      return bundle;
+    } catch {
+      return null;
+    }
+  }
 
   async openDataFile(): Promise<BackupBundle> {
     this.requireSupport();
@@ -62,7 +83,9 @@ export class LocalFileDataService {
     const bundle = this.parseBundle(await file.text());
     this.handle.set(handle);
     this.fileName.set(handle.name);
+    this.rememberedFileName.set(handle.name);
     this.lastSavedAt.set(bundle.exportedAt || '');
+    await this.storeHandle(handle);
     return bundle;
   }
 
@@ -76,54 +99,14 @@ export class LocalFileDataService {
     await this.writeToHandle(handle, bundle);
     this.handle.set(handle);
     this.fileName.set(handle.name);
+    this.rememberedFileName.set(handle.name);
+    await this.storeHandle(handle);
   }
 
   async writeCurrent(bundle: BackupBundle): Promise<void> {
     const handle = this.handle();
     if (!handle) throw new Error('Open or create an Avena data file first.');
     await this.writeToHandle(handle, bundle);
-  }
-
-  async configureAutomaticBackupFolder(): Promise<void> {
-    this.requireDirectorySupport();
-    const directory = await this.fileApi().showDirectoryPicker({ mode: 'readwrite' });
-    if (!directory) throw new Error('No backup folder selected.');
-    this.backupDirectory.set(directory);
-  }
-
-  clearAutomaticBackupFolder(): void {
-    this.backupDirectory.set(null);
-    this.lastAutomaticBackupAt.set('');
-  }
-
-  async automaticBackupCurrent(reason = 'change'): Promise<boolean> {
-    const directory = this.backupDirectory();
-    const current = this.handle();
-    if (!directory || !current) return false;
-
-    const sourceFile = await current.getFile();
-    const contents = await sourceFile.text();
-    if (!contents.trim()) return false;
-
-    const stamp = this.fileSafeTimestamp(new Date());
-    const cleanReason = reason.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32) || 'change';
-    const backupName = `avena-auto-backup-${stamp}-${cleanReason}.json`;
-    const backupHandle = await directory.getFileHandle(backupName, { create: true });
-    const writable = await backupHandle.createWritable();
-    await writable.write(new Blob([contents], { type: 'application/json' }));
-    await writable.close();
-    this.lastAutomaticBackupAt.set(new Date().toISOString());
-    return true;
-  }
-
-  async saveBundleCopy(bundle: BackupBundle, suggestedName: string): Promise<void> {
-    this.requireSupport();
-    const handle = await this.fileApi().showSaveFilePicker({
-      suggestedName,
-      excludeAcceptAllOption: false,
-      types: [this.jsonFileType()],
-    });
-    await this.writeToHandle(handle, bundle, false);
   }
 
   async saveTextFile(contents: string, suggestedName: string, mimeType: string, extension: string): Promise<void> {
@@ -141,15 +124,12 @@ export class LocalFileDataService {
     await writable.close();
   }
 
-  readBundleFromFile(file: File): Promise<BackupBundle> {
-    return file.text().then(text => this.parseBundle(text));
-  }
-
   disconnect(): void {
     this.handle.set(null);
     this.fileName.set('');
+    this.rememberedFileName.set('');
     this.lastSavedAt.set('');
-    this.clearAutomaticBackupFolder();
+    void this.deleteStoredHandle();
   }
 
   isUserCancellation(error: unknown): boolean {
@@ -162,6 +142,47 @@ export class LocalFileDataService {
     await writable.write(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
     await writable.close();
     if (updateTimestamp) this.lastSavedAt.set(payload.exportedAt);
+  }
+
+  private readStoredHandle(): Promise<NativeFileHandle | null> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.handleDatabaseName, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(this.handleStoreName);
+      request.onsuccess = () => {
+        const transaction = request.result.transaction(this.handleStoreName, 'readonly');
+        const getRequest = transaction.objectStore(this.handleStoreName).get(this.handleKey);
+        getRequest.onsuccess = () => resolve((getRequest.result as NativeFileHandle | undefined) ?? null);
+        getRequest.onerror = () => reject(getRequest.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private storeHandle(handle: NativeFileHandle): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.handleDatabaseName, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(this.handleStoreName);
+      request.onsuccess = () => {
+        const transaction = request.result.transaction(this.handleStoreName, 'readwrite');
+        transaction.objectStore(this.handleStoreName).put(handle, this.handleKey);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private deleteStoredHandle(): Promise<void> {
+    return new Promise(resolve => {
+      const request = indexedDB.open(this.handleDatabaseName, 1);
+      request.onsuccess = () => {
+        const transaction = request.result.transaction(this.handleStoreName, 'readwrite');
+        transaction.objectStore(this.handleStoreName).delete(this.handleKey);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => resolve();
+      };
+      request.onerror = () => resolve();
+    });
   }
 
   private parseBundle(text: string): BackupBundle {
@@ -191,13 +212,6 @@ export class LocalFileDataService {
     }
   }
 
-  private requireDirectorySupport(): void {
-    this.requireSupport();
-    const candidate = window as Partial<FileSystemWindow>;
-    if (typeof candidate.showDirectoryPicker !== 'function') {
-      throw new Error('Automatic folder backups require a current version of Chrome or Edge.');
-    }
-  }
 
   private fileApi(): FileSystemWindow {
     return window as unknown as FileSystemWindow;
@@ -210,8 +224,4 @@ export class LocalFileDataService {
     };
   }
 
-  private fileSafeTimestamp(value: Date): string {
-    const pad = (n: number, length = 2) => String(n).padStart(length, '0');
-    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}_${pad(value.getHours())}-${pad(value.getMinutes())}-${pad(value.getSeconds())}-${pad(value.getMilliseconds(), 3)}`;
-  }
 }

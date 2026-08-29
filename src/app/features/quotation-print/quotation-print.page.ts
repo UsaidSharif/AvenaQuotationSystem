@@ -1,5 +1,5 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PrintableDocumentType, QuotationRecord } from '../../core/models/domain.models';
 import { AppStoreService } from '../../core/services/app-store.service';
@@ -14,6 +14,7 @@ import {
   imports: [RouterLink, CurrencyPipe, DatePipe, DecimalPipe],
   templateUrl: './quotation-print.page.html',
   styleUrl: './quotation-print.page.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuotationPrintPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
@@ -29,8 +30,7 @@ export class QuotationPrintPage implements OnInit {
   readonly validationWarnings = computed(() => this.validationIssues().filter(item => item.level === 'warning'));
   readonly validationMessage = signal('');
 
-  async ngOnInit(): Promise<void> {
-    await this.store.initialize();
+  ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
     this.quote.set(this.store.findQuotation(id) ?? null);
   }

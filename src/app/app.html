@@ -1,4 +1,6 @@
-@if (!store.dataFileConnected()) {
+@if (!store.initialized()) {
+  <main class="file-gate loading-gate"><section class="file-gate-card"><div class="loading-spinner" aria-hidden="true"></div><h1>Reconnecting to your data file…</h1><p>Checking this browser for the last selected Avena data file.</p></section></main>
+} @else if (!store.dataFileConnected()) {
   <main class="file-gate">
     <section class="file-gate-card">
       <div class="file-gate-brand">
@@ -9,7 +11,7 @@
       <div class="file-gate-copy">
         <span class="eyebrow">LOCAL FILE MODE</span>
         <h1>Open your Avena data file</h1>
-        <p>All business records are read from and saved directly to one JSON file on this computer. No quotations, buyers, prices or settings are stored in IndexedDB or localStorage.</p>
+        <p>Your selected Avena data file will reopen automatically in this browser when permission is available. Business records remain in the JSON file.</p>
       </div>
 
       @if (!store.fileApiSupported()) {
@@ -21,7 +23,13 @@
       @if (fileError()) { <div class="notice danger">{{ fileError() }}</div> }
 
       <div class="file-actions">
-        <button class="button primary file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="openDataFile()">
+        @if (store.rememberedDataFileName()) {
+          <button class="button primary file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="reconnectDataFile()">
+            <strong>Reconnect {{ store.rememberedDataFileName() }}</strong>
+            <span>Restore permission without choosing the file again</span>
+          </button>
+        }
+        <button class="button file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="openDataFile()">
           <strong>Open existing data file</strong>
           <span>Select your existing avena-data.json</span>
         </button>
@@ -34,7 +42,7 @@
       <div class="file-location-tip">
         <strong>Recommended location</strong>
         <code>Documents\Avena Quotation System\avena-data.json</code>
-        <small>Because no browser database is used, select this file again whenever you reopen or refresh the app.</small>
+        <small>You can choose a different file at any time using “Open existing data file”.</small>
       </div>
     </section>
   </main>
@@ -70,7 +78,7 @@
           <span>{{ store.dataFileName() }} · local data file</span>
         </div>
         <div class="topbar-actions">
-          @if (store.automaticBackupConfigured()) { <span class="backup-status enabled">✓ Auto backup</span> } @else { <a class="backup-status" routerLink="/backup">Auto backup off</a> }
+          <button class="button compact change-file-button" type="button" (click)="openDataFile()">Change file</button>
           <a class="button primary compact" routerLink="/quotes/new">New Quote</a>
         </div>
       </header>

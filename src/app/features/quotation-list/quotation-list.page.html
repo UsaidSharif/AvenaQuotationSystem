@@ -2,6 +2,7 @@
   <div><h1>Quotations</h1><p>Search, duplicate, print and update the status of saved quotations.</p></div>
   <a class="button primary" routerLink="/quotes/new">＋ New quotation</a>
 </section>
+@if (error()) { <div class="notice danger page-error">{{ error() }}</div> }
 
 <section class="card filters">
   <div class="field"><label>Search</label><input [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Quote number, buyer, country or product"></div>

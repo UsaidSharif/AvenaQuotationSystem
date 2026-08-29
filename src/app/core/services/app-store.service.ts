@@ -80,11 +80,16 @@ function normalizeQuotationInput(item: QuotationInput): QuotationInput {
   };
 }
 
+function sortByUpdatedAt<T extends { updatedAt: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+}
+
 @Injectable({ providedIn: 'root' })
 export class AppStoreService {
   private readonly file = inject(LocalFileDataService);
 
   readonly ready = signal(false);
+  readonly initialized = signal(false);
   readonly company = signal<CompanyProfile>(structuredClone(demoCompany));
   readonly settings = signal<AppSettings>(structuredClone(demoSettings));
   readonly buyers = signal<Buyer[]>([]);
@@ -98,18 +103,35 @@ export class AppStoreService {
 
   readonly dataFileConnected = this.file.connected;
   readonly dataFileName = this.file.fileName;
+  readonly rememberedDataFileName = this.file.rememberedFileName;
   readonly lastSavedAt = this.file.lastSavedAt;
   readonly fileApiSupported = this.file.supported;
-  readonly automaticBackupConfigured = this.file.automaticBackupConfigured;
-  readonly automaticBackupFolderName = this.file.automaticBackupFolderName;
-  readonly lastAutomaticBackupAt = this.file.lastAutomaticBackupAt;
 
-  initialize(): Promise<void> {
-    return Promise.resolve();
+  async initialize(): Promise<void> {
+    if (this.initialized()) return;
+    try {
+      const bundle = await this.file.restoreDataFile();
+      if (bundle) {
+        this.validateBundle(bundle);
+        this.loadBundle(bundle);
+      }
+    } catch {
+      // The file may have moved, been deleted, or lost browser permission.
+      // Keep the file gate available so the user can choose another file.
+    } finally {
+      this.initialized.set(true);
+    }
   }
 
   async openDataFile(): Promise<void> {
     const bundle = await this.file.openDataFile();
+    this.validateBundle(bundle);
+    this.loadBundle(bundle);
+  }
+
+  async reconnectDataFile(): Promise<void> {
+    const bundle = await this.file.restoreDataFile(true);
+    if (!bundle) throw new Error('Permission was not granted for the remembered data file.');
     this.validateBundle(bundle);
     this.loadBundle(bundle);
   }
@@ -127,24 +149,7 @@ export class AppStoreService {
 
   async saveCurrentFile(): Promise<void> {
     this.requireDataFile();
-    await this.file.automaticBackupCurrent('manual-save');
     await this.file.writeCurrent(this.exportBundle());
-  }
-
-  async configureAutomaticBackupFolder(): Promise<void> {
-    this.requireDataFile();
-    await this.file.configureAutomaticBackupFolder();
-    await this.file.automaticBackupCurrent('backup-enabled');
-  }
-
-  clearAutomaticBackupFolder(): void {
-    this.file.clearAutomaticBackupFolder();
-  }
-
-  async saveBackupCopy(): Promise<void> {
-    this.requireDataFile();
-    const stamp = new Date().toISOString().replaceAll(':', '-').slice(0, 19);
-    await this.file.saveBundleCopy(this.exportBundle(), `avena-backup-${stamp}.json`);
   }
 
   async saveQuotationCsv(contents: string): Promise<void> {
@@ -152,19 +157,6 @@ export class AppStoreService {
     await this.file.saveTextFile(contents, `avena-quotation-history-${date}.csv`, 'text/csv', '.csv');
   }
 
-  async readBackupFile(file: File): Promise<BackupBundle> {
-    const bundle = await this.file.readBundleFromFile(file);
-    this.validateBundle(bundle);
-    return bundle;
-  }
-
-  async replaceCurrentWithBundle(bundle: BackupBundle): Promise<void> {
-    this.requireDataFile();
-    this.validateBundle(bundle);
-    await this.file.automaticBackupCurrent('before-restore');
-    await this.file.writeCurrent(bundle);
-    this.loadBundle(bundle);
-  }
 
   isFilePickerCancellation(error: unknown): boolean {
     return this.file.isUserCancellation(error);
@@ -217,9 +209,8 @@ export class AppStoreService {
       updatedAt: timestamp,
     };
 
-    this.quotations.set([record, ...previous.filter(item => item.id !== record.id)]
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
-    try { await this.persist('quotation-save'); }
+    this.quotations.set(sortByUpdatedAt([record, ...previous.filter(item => item.id !== record.id)]));
+    try { await this.persist(); }
     catch (error) { this.quotations.set(previous); throw error; }
   }
 
@@ -230,7 +221,7 @@ export class AppStoreService {
     }
     const previous = this.quotations();
     this.quotations.set(previous.filter(item => item.id !== id));
-    try { await this.persist('quotation-delete'); }
+    try { await this.persist(); }
     catch (error) { this.quotations.set(previous); throw error; }
   }
 
@@ -275,9 +266,8 @@ export class AppStoreService {
     const quote = previous.find(item => item.id === id);
     if (!quote) return;
     const updated = { ...quote, status, updatedAt: nowIso() };
-    this.quotations.set([updated, ...previous.filter(item => item.id !== id)]
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
-    try { await this.persist('quotation-status'); }
+    this.quotations.set(sortByUpdatedAt([updated, ...previous.filter(item => item.id !== id)]));
+    try { await this.persist(); }
     catch (error) { this.quotations.set(previous); throw error; }
   }
 
@@ -297,13 +287,6 @@ export class AppStoreService {
     };
   }
 
-  async resetDemoData(): Promise<void> {
-    this.requireDataFile();
-    const bundle = this.demoBundle();
-    await this.file.automaticBackupCurrent('before-reset');
-    await this.file.writeCurrent(bundle);
-    this.loadBundle(bundle);
-  }
 
   newRecord<T extends object>(prefix: string, defaults: T): T & { id: string; createdAt: string; updatedAt: string } {
     const timestamp = nowIso();
@@ -316,7 +299,7 @@ export class AppStoreService {
   ): Promise<void> {
     const previous = state();
     const record = { ...value, updatedAt: nowIso() } as T;
-    state.set([...previous.filter(item => item.id !== record.id), record]);
+    state.set(sortByUpdatedAt([...previous.filter(item => item.id !== record.id), record]));
     try { await this.persist(); }
     catch (error) { state.set(previous); throw error; }
   }
@@ -328,9 +311,8 @@ export class AppStoreService {
     catch (error) { state.set(previous); throw error; }
   }
 
-  private async persist(reason = 'change'): Promise<void> {
+  private async persist(): Promise<void> {
     this.requireDataFile();
-    await this.file.automaticBackupCurrent(reason);
     await this.file.writeCurrent(this.exportBundle());
   }
 
@@ -399,13 +381,13 @@ export class AppStoreService {
 
     this.company.set(company);
     this.settings.set(settings);
-    this.buyers.set(structuredClone(bundle.buyers));
-    this.products.set(products);
-    this.supplierPrices.set(structuredClone(bundle.supplierPrices));
-    this.packaging.set(packaging);
-    this.logistics.set(logistics);
-    this.agents.set(structuredClone(bundle.agents));
-    this.quotations.set(quotations.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+    this.buyers.set(sortByUpdatedAt(structuredClone(bundle.buyers)));
+    this.products.set(sortByUpdatedAt(products));
+    this.supplierPrices.set(sortByUpdatedAt(structuredClone(bundle.supplierPrices)));
+    this.packaging.set(sortByUpdatedAt(packaging));
+    this.logistics.set(sortByUpdatedAt(logistics));
+    this.agents.set(sortByUpdatedAt(structuredClone(bundle.agents)));
+    this.quotations.set(sortByUpdatedAt(quotations));
     this.ready.set(true);
   }
 

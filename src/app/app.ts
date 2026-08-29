@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AppStoreService } from './core/services/app-store.service';
 import { PwaUpdateService } from './core/services/pwa-update.service';
@@ -8,6 +8,7 @@ import { PwaUpdateService } from './core/services/pwa-update.service';
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './app.html',
   styleUrl: './app.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
   readonly store = inject(AppStoreService);
@@ -18,6 +19,10 @@ export class App {
   readonly fileMessage = signal('');
   readonly fileError = signal('');
 
+  constructor() {
+    void this.store.initialize();
+  }
+
   toggleMenu(): void { this.menuOpen.update(value => !value); }
   closeMenu(): void { this.menuOpen.set(false); }
 
@@ -27,6 +32,10 @@ export class App {
 
   async createDataFile(): Promise<void> {
     await this.runFileAction(() => this.store.createNewDataFile(), 'New Avena data file created.');
+  }
+
+  async reconnectDataFile(): Promise<void> {
+    await this.runFileAction(() => this.store.reconnectDataFile(), 'Data file reconnected successfully.');
   }
 
   @HostListener('window:online') setOnline(): void { this.online.set(true); }

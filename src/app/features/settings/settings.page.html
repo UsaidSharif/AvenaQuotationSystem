@@ -1,5 +1,6 @@
 <section class="page-heading"><div><h1>Company & Defaults</h1><p>These details are reused in the standard Avena quotation and proforma invoice.</p></div></section>
 @if (savedMessage()) { <div class="notice success saved">{{ savedMessage() }}</div> }
+@if (error()) { <div class="notice danger saved">{{ error() }}</div> }
 <div class="grid two settings-grid">
   <form class="card" [formGroup]="companyForm" (ngSubmit)="saveCompany()">
     <div class="card-header"><div><h2>Company profile</h2><span class="muted">Printed on client documents</span></div></div>

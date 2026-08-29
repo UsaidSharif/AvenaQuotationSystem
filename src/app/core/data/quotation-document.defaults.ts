@@ -32,7 +32,7 @@ export function createDefaultQuotationDocument(
   return {
     revisionNo: '00',
     buyerRfqRef: 'N/A',
-    documentStatus: 'Final',
+    documentStatus: 'Draft',
     quantityTolerancePercent: 5,
     incotermNamedPlace: '',
     priceBasis: 'USD per MT based on stated quality, packing, quantity and shipment terms',

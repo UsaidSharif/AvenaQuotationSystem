@@ -1,5 +1,5 @@
 import { CurrencyPipe, DecimalPipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -20,6 +20,7 @@ import { deriveDocumentNumber } from '../../shared/utils/document-identifiers';
   imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, DecimalPipe],
   templateUrl: './quote-wizard.page.html',
   styleUrl: './quote-wizard.page.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuoteWizardPage implements OnInit {
   private readonly fb = inject(FormBuilder);
@@ -83,7 +84,7 @@ export class QuoteWizardPage implements OnInit {
 
     revisionNo: ['00', Validators.required],
     buyerRfqRef: ['N/A'],
-    documentStatus: ['Final' as DocumentStatus, Validators.required],
+    documentStatus: ['Draft' as DocumentStatus, Validators.required],
     quantityTolerancePercent: [5, [Validators.required, Validators.min(0), Validators.max(100)]],
     incotermNamedPlace: [''],
     priceBasis: [''],
@@ -147,8 +148,7 @@ export class QuoteWizardPage implements OnInit {
     notes: [''],
   });
 
-  async ngOnInit(): Promise<void> {
-    await this.store.initialize();
+  ngOnInit(): void {
     this.applyDefaultValues();
     this.loadRequestedQuotation();
 

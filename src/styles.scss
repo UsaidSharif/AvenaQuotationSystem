@@ -67,6 +67,7 @@ th { background: #eef4f2; color: #40504b; font-size: .78rem; text-transform: upp
 @media (max-width: 900px) {
   .grid.two, .grid.three, .grid.four, .form-grid, .form-grid.three { grid-template-columns: 1fr; }
   .page-heading { flex-direction: column; }
+  .page-heading > .button { width: 100%; }
   .field.full { grid-column: auto; }
 }
 @media print {
