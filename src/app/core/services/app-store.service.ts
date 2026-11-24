@@ -113,8 +113,9 @@ export class AppStoreService {
   readonly dataFileConnected = this.file.connected;
   readonly dataFileName = this.file.fileName;
   readonly rememberedDataFileName = this.file.rememberedFileName;
+  readonly pendingOpenFileName = this.file.pendingOpenFileName;
   readonly lastSavedAt = this.file.lastSavedAt;
-  readonly fileApiSupported = this.file.supported;
+  readonly fileApiSupported = this.file.fileApiSupported;
 
   async initialize(): Promise<void> {
     if (this.initialized()) return;
@@ -125,7 +126,6 @@ export class AppStoreService {
         this.loadBundle(bundle);
       }
     } catch {
-      // The file may have moved, been deleted, or lost browser permission.
       // Keep the file gate available so the user can choose another file.
     } finally {
       this.initialized.set(true);
@@ -138,17 +138,20 @@ export class AppStoreService {
     this.loadBundle(bundle);
   }
 
-  async reconnectDataFile(): Promise<void> {
-    const bundle = await this.file.restoreDataFile(true);
-    if (!bundle) throw new Error('Permission was not granted for the remembered data file.');
-    this.validateBundle(bundle);
-    this.loadBundle(bundle);
-  }
-
   async createNewDataFile(): Promise<void> {
     const bundle = this.demoBundle();
     await this.file.createDataFile(bundle);
     this.loadBundle(bundle);
+  }
+
+  async downloadBackup(): Promise<void> {
+    this.requireDataFile();
+    await this.file.downloadBackup(this.exportBundle(), this.dataFileName() || 'avena-data.json');
+  }
+
+  async linkDiskFile(): Promise<void> {
+    this.requireDataFile();
+    await this.file.linkDiskFile(this.exportBundle());
   }
 
   closeDataFile(): void {

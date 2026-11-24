@@ -1,5 +1,5 @@
 @if (!store.initialized()) {
-  <main class="file-gate loading-gate"><section class="file-gate-card"><div class="loading-spinner" aria-hidden="true"></div><h1>Reconnecting to your data file…</h1><p>Checking this browser for the last selected Avena data file.</p></section></main>
+  <main class="file-gate loading-gate"><section class="file-gate-card"><div class="loading-spinner" aria-hidden="true"></div><h1>Reconnecting to your data…</h1><p>Checking this browser for your last Avena session.</p></section></main>
 } @else if (!store.dataFileConnected()) {
   <main class="file-gate">
     <section class="file-gate-card">
@@ -9,40 +9,29 @@
       </div>
 
       <div class="file-gate-copy">
-        <span class="eyebrow">LOCAL FILE MODE</span>
+        <span class="eyebrow">LOCAL DATA MODE</span>
         <h1>Open your Avena data file</h1>
-        <p>Your selected Avena data file will reopen automatically in this browser when permission is available. Business records remain in the JSON file.</p>
+        <p>Import your JSON once. The app keeps working data in this browser and can download a backup anytime.</p>
       </div>
 
-      @if (!store.fileApiSupported()) {
-        <div class="notice danger">
-          Direct file access is unavailable here. Use current Chrome or Edge and open the app from your Netlify HTTPS address (or localhost).
-        </div>
-      }
       @if (fileMessage()) { <div class="notice success">{{ fileMessage() }}</div> }
       @if (fileError()) { <div class="notice danger">{{ fileError() }}</div> }
 
       <div class="file-actions">
-        @if (store.rememberedDataFileName()) {
-          <button class="button primary file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="reconnectDataFile()">
-            <strong>Reconnect {{ store.rememberedDataFileName() }}</strong>
-            <span>Restore permission without choosing the file again</span>
-          </button>
-        }
-        <button class="button file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="openDataFile()">
+        <button class="button primary file-action" type="button" [disabled]="fileBusy()" (click)="openDataFile()">
           <strong>Open existing data file</strong>
-          <span>Select your existing avena-data.json</span>
+          <span>Select avena-data.json (must start with version 1)</span>
         </button>
-        <button class="button file-action" type="button" [disabled]="fileBusy() || !store.fileApiSupported()" (click)="createDataFile()">
+        <button class="button file-action" type="button" [disabled]="fileBusy()" (click)="createDataFile()">
           <strong>Create new data file</strong>
-          <span>Choose where to save avena-data.json</span>
+          <span>Start fresh with demo master data</span>
         </button>
       </div>
 
       <div class="file-location-tip">
-        <strong>Recommended location</strong>
-        <code>Documents\Avena Quotation System\avena-data.json</code>
-        <small>You can choose a different file at any time using “Open existing data file”.</small>
+        <strong>Use this file</strong>
+        <code>Documents\avena-data.json</code>
+        <small>Or Documents\Avena Quotation System\avena-data.json (restored). Avoid empty 0 KB files.</small>
       </div>
     </section>
   </main>
@@ -66,7 +55,7 @@
       <div class="sidebar-footer">
         <span class="connection" [class.offline]="!online()">● {{ online() ? 'Online' : 'Offline mode' }}</span>
         <small class="data-file-name">{{ store.dataFileName() }}</small>
-        <small>Business data is saved to this computer file.</small>
+        <small>Working copy saved in this browser.</small>
       </div>
     </aside>
 
@@ -75,7 +64,7 @@
         <button class="menu-button" type="button" (click)="toggleMenu()">☰</button>
         <div>
           <strong>{{ store.company().tradingName }}</strong>
-          <span>{{ store.dataFileName() }} · local data file</span>
+          <span>{{ store.dataFileName() }} · browser session</span>
         </div>
         <div class="topbar-actions">
           <button class="button compact change-file-button" type="button" (click)="openDataFile()">Change file</button>
@@ -89,6 +78,9 @@
           <button type="button" (click)="pwaUpdate.activate()">Update now</button>
         </div>
       }
+
+      @if (fileError()) { <div class="notice danger page-message no-print">{{ fileError() }}</div> }
+      @if (fileMessage()) { <div class="notice success page-message no-print">{{ fileMessage() }}</div> }
 
       <main class="page-container"><router-outlet /></main>
     </div>

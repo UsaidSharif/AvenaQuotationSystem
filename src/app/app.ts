@@ -27,15 +27,17 @@ export class App {
   closeMenu(): void { this.menuOpen.set(false); }
 
   async openDataFile(): Promise<void> {
-    await this.runFileAction(() => this.store.openDataFile(), 'Data file opened successfully.');
+    await this.runFileAction(
+      () => this.store.openDataFile(),
+      'Data file opened. Work is saved in this browser; use Download backup for a JSON copy.',
+    );
   }
 
   async createDataFile(): Promise<void> {
-    await this.runFileAction(() => this.store.createNewDataFile(), 'New Avena data file created.');
-  }
-
-  async reconnectDataFile(): Promise<void> {
-    await this.runFileAction(() => this.store.reconnectDataFile(), 'Data file reconnected successfully.');
+    await this.runFileAction(
+      () => this.store.createNewDataFile(),
+      'New data session created. Use Download backup to keep a JSON copy on disk.',
+    );
   }
 
   @HostListener('window:online') setOnline(): void { this.online.set(true); }
@@ -44,9 +46,10 @@ export class App {
   private async runFileAction(action: () => Promise<void>, successMessage: string): Promise<void> {
     this.fileError.set('');
     this.fileMessage.set('');
-    this.fileBusy.set(true);
     try {
-      await action();
+      const pending = action();
+      this.fileBusy.set(true);
+      await pending;
       this.fileMessage.set(successMessage);
     } catch (error: unknown) {
       if (!this.store.isFilePickerCancellation(error)) {

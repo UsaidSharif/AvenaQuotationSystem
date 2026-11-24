@@ -15,11 +15,19 @@ export class BackupPage {
   readonly busy = signal(false);
 
   async saveNow(): Promise<void> {
-    await this.run(() => this.store.saveCurrentFile(), 'Current data file saved successfully.');
+    await this.run(() => this.store.saveCurrentFile(), 'Browser session saved successfully.');
+  }
+
+  async downloadBackup(): Promise<void> {
+    await this.run(() => this.store.downloadBackup(), 'JSON backup downloaded.');
+  }
+
+  async linkDiskFile(): Promise<void> {
+    await this.run(() => this.store.linkDiskFile(), 'Disk file linked for mirroring when Chrome allows it.');
   }
 
   async changeFile(): Promise<void> {
-    await this.run(() => this.store.openDataFile(), 'Data file changed successfully.');
+    await this.run(() => this.store.openDataFile(), 'Data file imported successfully.');
   }
 
   async exportCsv(): Promise<void> {
@@ -28,16 +36,17 @@ export class BackupPage {
   }
 
   closeFile(): void {
-    if (!confirm('Close the current data file? Unsaved form changes will be lost.')) return;
+    if (!confirm('Close the current data session? Unsaved form changes will be lost.')) return;
     this.store.closeDataFile();
   }
 
   private async run(action: () => Promise<void>, success: string): Promise<void> {
     this.message.set('');
     this.error.set('');
-    this.busy.set(true);
     try {
-      await action();
+      const pending = action();
+      this.busy.set(true);
+      await pending;
       this.message.set(success);
     } catch (error: unknown) {
       if (!this.store.isFilePickerCancellation(error)) {

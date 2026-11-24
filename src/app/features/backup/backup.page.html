@@ -1,5 +1,5 @@
 <section class="page-heading">
-  <div><h1>Data File</h1><p>Manage the JSON file used by this browser session.</p></div>
+  <div><h1>Data File</h1><p>Working data is kept in this browser. Download a JSON backup for safekeeping.</p></div>
 </section>
 
 @if (message()) { <div class="notice success page-message">{{ message() }}</div> }
@@ -7,15 +7,17 @@
 
 <section class="card current-file-card">
   <div>
-    <span class="file-kicker">CURRENT DATA FILE</span>
+    <span class="file-kicker">CURRENT SESSION</span>
     <h2>{{ store.dataFileName() }}</h2>
-    <p>All buyers, prices, quotations and settings are saved directly to this file.</p>
+    <p>All buyers, prices, quotations and settings are saved in this browser session.</p>
     @if (store.lastSavedAt()) { <small>Last written: {{ store.lastSavedAt() }}</small> }
   </div>
   <div class="file-card-actions">
     <button class="button primary" type="button" [disabled]="busy()" (click)="saveNow()">Save now</button>
-    <button class="button" type="button" [disabled]="busy()" (click)="changeFile()">Change file</button>
-    <button class="button" type="button" [disabled]="busy()" (click)="closeFile()">Close file</button>
+    <button class="button" type="button" [disabled]="busy()" (click)="downloadBackup()">Download backup</button>
+    <button class="button" type="button" [disabled]="busy()" (click)="changeFile()">Import other file</button>
+    <button class="button" type="button" [disabled]="busy() || !store.fileApiSupported()" (click)="linkDiskFile()">Link disk file</button>
+    <button class="button" type="button" [disabled]="busy()" (click)="closeFile()">Close session</button>
   </div>
 </section>
 
@@ -27,5 +29,6 @@
 </section>
 
 <section class="notice warning offline-note">
-  <strong>Automatic reopening:</strong> this browser remembers the selected file permission when possible. If permission is cleared, use “Reconnect last file” on the start screen.
+  <strong>Tip:</strong> After important changes, use “Download backup” and keep a copy under
+  <code>Documents\Avena Quotation System\</code>.
 </section>
