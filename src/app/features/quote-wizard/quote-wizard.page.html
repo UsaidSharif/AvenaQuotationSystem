@@ -34,7 +34,7 @@
         <div class="field full"><label>Payment terms wording *</label><input formControlName="paymentTerms"><small>Printed on the quotation; edit when using split or custom terms.</small></div>
         <div class="field"><label>Advance %</label><input type="number" min="0" max="100" formControlName="advancePercent"></div><div class="field"><label>Balance %</label><input type="number" min="0" max="100" formControlName="balancePercent"></div>
         @if (form.controls.advancePercent.value + form.controls.balancePercent.value !== 100) { <div class="field full"><small class="muted">Advance and balance percentages must total 100%.</small></div> }
-        <div class="field"><label>Tenor / credit days</label><input type="number" min="0" formControlName="paymentTenorDays"></div><div class="field full"><label>Payment trigger</label><input formControlName="paymentTrigger"></div>
+        <div class="field"><label>Tenor / credit days</label><input type="number" min="0" formControlName="paymentTenorDays"><small>Financing is calculated on the unpaid balance for this period.</small></div><div class="field full"><label>Payment trigger</label><input formControlName="paymentTrigger"></div>
       </div>
       <details class="notice"><summary><strong>Trade and payment terminology</strong></summary><p><b>EXW</b> Ex Works · <b>FCA</b> Free Carrier · <b>FOB</b> Free On Board · <b>CFR</b> Cost and Freight · <b>CNF</b> commercial shorthand using CFR cost basis · <b>CIF</b> Cost, Insurance and Freight · <b>DAP</b> Delivered at Place, buyer handles import clearance · <b>DDP</b> Delivered Duty Paid, seller handles costed import clearance, duties and taxes.</p><p><b>TT</b> Telegraphic Transfer · <b>LC at Sight</b> payment against compliant LC documents at sight · <b>Usance LC</b> deferred LC payment · <b>CAD</b> Cash Against Documents · <b>D/P</b> Documents Against Payment · <b>D/A</b> Documents Against Acceptance · <b>Open Account</b> payment after an agreed credit period.</p></details>
     }
@@ -84,7 +84,7 @@
         </div>
       }
       @if (calculation(); as result) {
-        <div class="load-check" [class.danger-box]="!result.loading.withinLimits">
+        <div class="load-check">
           <div><small>Gross cargo / container</small><strong>{{ result.loading.grossCargoPerContainerKg | number:'1.0-0' }} kg</strong><span>{{ result.loading.weightUtilizationPercent | number:'1.1-1' }}% of payload</span></div>
           <div><small>Cargo volume / container</small><strong>{{ result.loading.cargoVolumePerContainerCbm | number:'1.1-2' }} CBM</strong><span>{{ result.loading.volumeUtilizationPercent | number:'1.1-1' }}% of usable volume</span></div>
           <div><small>Recommended maximum</small><strong>{{ result.loading.recommendedMaxNetMt | number:'1.1-2' }} MT</strong><span>Based on entered packaging dimensions</span></div>
@@ -227,13 +227,14 @@
     @if (calculation(); as result) {
       <div class="card-body">
         <div class="live-price"><small>{{ form.controls.tradeTerm.value }} {{ form.controls.scenario.value }}</small><strong>{{ quotedPrice() | currency:form.controls.quoteCurrency.value:'symbol':'1.0-2' }}</strong><span>per metric ton</span></div>
+        <section class="cost-basis"><strong>Selected price includes</strong><ul>@for (item of selectedCostInclusions(); track item) { <li>{{ item }}</li> }</ul></section>
         <dl>
           <div><dt>Total net weight</dt><dd>{{ result.loading.totalNetMt | number:'1.2-2' }} MT</dd></div>
           <div><dt>Selected term cost</dt><dd>{{ result.costs.selectedTermCostUsd | currency:'USD' }}</dd></div>
           <div><dt>FOB cost</dt><dd>{{ result.costs.fobCostUsd | currency:'USD' }}</dd></div>
-          <div><dt>Freight</dt><dd>{{ result.costs.freightUsd | currency:'USD' }}</dd></div>
+          <div><dt>{{ freightIncludesInsuranceInSelectedCost() ? 'Freight (insurance included in rate)' : 'Freight' }}</dt><dd>{{ result.costs.freightUsd | currency:'USD' }}</dd></div>
           <div><dt>Local charges</dt><dd>{{ result.costs.localChargesPkr | currency:'PKR':'symbol':'1.0-0' }}</dd></div>
-          <div><dt>Insurance</dt><dd>{{ result.costs.fixedInsuranceUsd + result.costs.variableInsuranceUsd | currency:'USD' }}</dd></div>
+          <div><dt>Insurance</dt><dd>@if (freightIncludesInsuranceInSelectedCost()) { Included in freight } @else { {{ result.costs.fixedInsuranceUsd + result.costs.variableInsuranceUsd | currency:'USD' }} }</dd></div>
           <div><dt>Destination costs</dt><dd>{{ result.costs.destinationDeliveryUsd + result.costs.destinationCustomsClearanceUsd + result.costs.destinationDutiesTaxesUsd | currency:'USD' }}</dd></div>
           <div><dt>Payment costs</dt><dd>{{ result.costs.paymentCostsUsd | currency:'USD' }}</dd></div>
           <div><dt>Invoice total</dt><dd>{{ invoiceTotal() | currency:form.controls.quoteCurrency.value:'symbol':'1.0-2' }}</dd></div>

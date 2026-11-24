@@ -163,6 +163,7 @@ export interface LogisticsRate extends BaseRecord {
   originCharges: OriginCharges;
   oceanFreightUsd: number;
   freightSurchargeUsd: number;
+  freightIncludesInsurance?: boolean;
   lclFreightUsdPerCbm: number;
   lclFreightUsdPerMt: number;
   minimumLclFreightUsd: number;
@@ -372,6 +373,7 @@ export interface QuotationRecord extends BaseRecord {
   input: QuotationInput;
   document: QuotationDocumentDetails;
   calculation: QuoteCalculation;
+  calculationVersion?: number;
   snapshots: QuotationSnapshots;
   notes: string;
 }

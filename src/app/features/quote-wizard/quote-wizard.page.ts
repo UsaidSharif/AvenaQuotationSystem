@@ -9,6 +9,7 @@ import {
   QuotationInput, QuotationRecord, SupplierPrice, TradeTerm,
 } from '../../core/models/domain.models';
 import { AppStoreService } from '../../core/services/app-store.service';
+import { QUOTATION_CALCULATION_VERSION } from '../../core/services/quotation-calculator.service';
 import { QuotationCalculatorService } from '../../core/services/quotation-calculator.service';
 import { QuotationValidationService } from '../../core/services/quotation-validation.service';
 import { createDefaultQuotationDocument } from '../../core/data/quotation-document.defaults';
@@ -179,6 +180,39 @@ export class QuoteWizardPage implements OnInit {
   selectedLogistics(): LogisticsRate | undefined { return this.store.logistics().find(item => item.id === this.form.controls.logisticsId.value); }
   selectedAgent(): CommissionAgent | undefined { return this.store.agents().find(item => item.id === this.form.controls.agentId.value); }
 
+  selectedCostInclusions(): string[] {
+    const term = this.form.controls.tradeTerm.value;
+    const lane = this.selectedLogistics();
+    const items = ['Rice, processing and packaging'];
+    if (term === 'LOCAL') {
+      items.push('No local delivery charge is currently added to the LOCAL cost basis.');
+    } else if (term === 'FCA') {
+      items.push('Configured FCA origin charges (port terminal charge excluded).');
+    } else if (['FOB', 'CFR', 'CNF', 'CIF', 'DAP', 'DDP'].includes(term)) {
+      items.push('Configured origin and export charges.');
+    }
+    if (['CFR', 'CNF', 'CIF', 'DAP', 'DDP'].includes(term)) {
+      items.push(lane?.freightIncludesInsurance
+        ? 'Freight and surcharge; selected freight rate is marked as including insurance.'
+        : 'Freight and surcharge.');
+    }
+    if (term === 'CIF' && !lane?.freightIncludesInsurance) items.push('Separate cargo insurance premium.');
+    if (term === 'DAP' || term === 'DDP') items.push('Destination delivery.');
+    if (term === 'DDP') items.push('Import clearance, duties and taxes.');
+    items.push('Contingency and bank-cost percentages are applied to the EXW/FCA/FOB cost base.');
+    if (this.form.controls.paymentTenorDays.value > 0
+      || this.form.controls.paymentBankChargesUsd.value > 0
+      || this.form.controls.paymentRiskBufferPercent.value > 0) {
+      items.push('Payment financing, bank charges and risk buffer are added after the trade-term cost.');
+    }
+    return items;
+  }
+
+  freightIncludesInsuranceInSelectedCost(): boolean {
+    return ['CFR', 'CNF', 'CIF', 'DAP', 'DDP'].includes(this.form.controls.tradeTerm.value)
+      && this.selectedLogistics()?.freightIncludesInsurance === true;
+  }
+
   private applyPaymentMethod(method: PaymentMethod): void {
     const presets: Record<PaymentMethod, { advance: number; balance: number; tenor: number; trigger: string }> = {
       'advance-tt': { advance: 100, balance: 0, tenor: 0, trigger: 'Before production' },
@@ -337,6 +371,7 @@ export class QuoteWizardPage implements OnInit {
       input,
       document,
       calculation: this.calculation()!,
+      calculationVersion: QUOTATION_CALCULATION_VERSION,
       snapshots: {
         buyer: structuredClone(buyer), product: structuredClone(product), supplier: structuredClone(supplier),
         packaging: structuredClone(packaging), logistics: structuredClone(logistics), agent: structuredClone(agent),

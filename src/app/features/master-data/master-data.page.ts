@@ -74,7 +74,7 @@ export class MasterDataPage {
       containerType: "20' Dry FCL", originCharges: {
         inlandTransportPkr: 0, containerPositioningPkr: 0, stuffingPkr: 0, customsDocsPkr: 0,
         portTerminalPkr: 0, vgmPkr: 0, sealPkr: 0, certificatesPkr: 0, inspectionPkr: 0, additionalPkr: 0,
-      }, oceanFreightUsd: 0, freightSurchargeUsd: 0,
+      }, oceanFreightUsd: 0, freightSurchargeUsd: 0, freightIncludesInsurance: false,
       lclFreightUsdPerCbm: 0, lclFreightUsdPerMt: 0, minimumLclFreightUsd: 0,
       fixedInsuranceUsd: 0, insurancePercentOfCfr: 0.3,
       destinationDeliveryUsd: 0, destinationCustomsClearanceUsd: 0, destinationDutiesTaxesUsd: 0,

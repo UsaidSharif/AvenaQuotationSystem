@@ -10,6 +10,8 @@ import {
   SupplierPrice,
 } from '../models/domain.models';
 
+export const QUOTATION_CALCULATION_VERSION = 2;
+
 interface CalculationLookups {
   product: Product;
   supplier: SupplierPrice;
@@ -220,8 +222,9 @@ export class QuotationCalculatorService {
         + logistics.freightSurchargeUsd * input.containers
       : (logistics.oceanFreightUsd + logistics.freightSurchargeUsd) * input.containers;
     const cfrCostUsd = fobCostUsd + freightUsd;
-    const fixedInsuranceUsd = logistics.fixedInsuranceUsd * input.containers;
-    const variableInsuranceUsd = cfrCostUsd * logistics.insurancePercentOfCfr / 100;
+    const insuranceIncludedInFreight = logistics.freightIncludesInsurance === true;
+    const fixedInsuranceUsd = insuranceIncludedInFreight ? 0 : logistics.fixedInsuranceUsd * input.containers;
+    const variableInsuranceUsd = insuranceIncludedInFreight ? 0 : cfrCostUsd * logistics.insurancePercentOfCfr / 100;
     const cifCostUsd = cfrCostUsd + fixedInsuranceUsd + variableInsuranceUsd;
     const destinationDeliveryUsd = logistics.destinationDeliveryUsd * input.containers;
     const destinationCustomsClearanceUsd = logistics.destinationCustomsClearanceUsd * input.containers;
@@ -243,7 +246,8 @@ export class QuotationCalculatorService {
                 : input.tradeTerm === 'FCA'
                   ? fcaCostUsd
                   : fobCostUsd;
-    const paymentFinancingUsd = selectedTermBaseCostUsd
+    const financedBalanceUsd = selectedTermBaseCostUsd * input.balancePercent / 100;
+    const paymentFinancingUsd = financedBalanceUsd
       * input.paymentFinancingAnnualPercent / 100
       * input.paymentTenorDays / 365;
     const paymentBankChargesUsd = input.paymentBankChargesUsd;
@@ -304,7 +308,9 @@ export class QuotationCalculatorService {
     if (freightTerms.includes(input.tradeTerm) && freightUsd <= 0) {
       warnings.push('Freight is zero for a CFR/CNF/CIF/DAP/DDP quotation.');
     }
-    if (input.tradeTerm === 'CIF' && fixedInsuranceUsd + variableInsuranceUsd <= 0) {
+    if (input.tradeTerm === 'CIF'
+      && fixedInsuranceUsd + variableInsuranceUsd <= 0
+      && !(insuranceIncludedInFreight && freightUsd > 0)) {
       warnings.push('Insurance is zero for a CIF quotation.');
     }
     if (input.tradeTerm === 'DAP' && destinationDeliveryUsd <= 0) {
@@ -316,8 +322,6 @@ export class QuotationCalculatorService {
     if (input.tradeTerm === 'DDP' && destinationCustomsClearanceUsd + destinationDutiesTaxesUsd <= 0) {
       warnings.push('Import clearance, duties and taxes are zero for a DDP quotation.');
     }
-    if (!isLcl && grossCargoPerContainerKg > container.payloadKg) warnings.push('Gross cargo exceeds the planning payload.');
-    if (!isLcl && cargoVolumePerContainerCbm > container.usableVolumeCbm) warnings.push('Outer-pack volume exceeds the usable container volume.');
     const productMoqMt = nonNegative(data.product.moqMt ?? 0, 'Product MOQ');
     if (productMoqMt > 0 && totalNetMt > 0 && totalNetMt < productMoqMt) {
       warnings.push(`Order quantity is below the product MOQ of ${productMoqMt} MT.`);

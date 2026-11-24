@@ -7,13 +7,23 @@
     <button type="button" [class.active]="documentType() === 'commercial-invoice'" (click)="setDocument('commercial-invoice')">Commercial Invoice</button>
     <button type="button" [class.active]="documentType() === 'packing-list'" (click)="setDocument('packing-list')">Packing List</button>
   </div>
-  @if (quote(); as record) { <a class="button" [routerLink]="['/quotes', record.id, 'edit']">{{ store.isQuotationLocked(record) ? 'Create Revision' : 'Edit' }}</a> }
+  @if (quote(); as record) {
+    @if (store.needsQuotationRecalculation(record) && !store.isQuotationLocked(record)) { <button class="button" type="button" [disabled]="recalculating()" (click)="recalculateSavedDraft()">{{ recalculating() ? 'Recalculating…' : 'Recalculate Draft' }}</button> }
+    <a class="button" [routerLink]="['/quotes', record.id, 'edit']">{{ store.isQuotationLocked(record) ? 'Create Revision' : 'Edit' }}</a>
+  }
   <button class="button primary" type="button" [disabled]="validationErrors().length > 0" (click)="print()">Print / Save PDF</button>
 </div>
 
 <div class="pdf-validation no-print" [class.has-errors]="validationErrors().length > 0">
   <div class="pdf-validation-heading"><div><strong>Pre-PDF validation</strong><span>{{ validationErrors().length }} critical · {{ validationWarnings().length }} advisory</span></div>@if (validationErrors().length === 0) { <span class="validation-ready">✓ Ready for PDF</span> } @else { <span class="validation-blocked">PDF blocked</span> }</div>
   @if (validationMessage()) { <div class="notice danger">{{ validationMessage() }}</div> }
+  @if (recalculationMessage()) { <div class="notice success">{{ recalculationMessage() }}</div> }
+  @if (recalculationError()) { <div class="notice danger">{{ recalculationError() }}</div> }
+  @if (quote(); as record) {
+    @if (store.needsQuotationRecalculation(record)) {
+      <div class="notice warning">@if (store.isQuotationLocked(record)) { This Final document retains its saved historical calculation. } @else { Recalculate this Draft before issuing a PDF. The recalculation uses its saved input and cost snapshots. }</div>
+    }
+  }
   @if (validationErrors().length) { <div class="validation-list errors">@for (issue of validationErrors(); track issue.code) { <div>✕ {{ issue.message }}</div> }</div> }
   @if (validationWarnings().length) { <div class="validation-list warnings">@for (issue of validationWarnings(); track issue.code) { <div>⚠ {{ issue.message }}</div> }</div> }
 </div>

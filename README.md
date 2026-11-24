@@ -2,7 +2,7 @@
 
 A browser-based quotation, costing and proforma-invoice system for **AVENA AGRO FOODS PRIVATE LIMITED**.
 
-This edition stores business data in a normal JSON file on the computer instead of IndexedDB or localStorage.
+This edition stores business data in a JSON file on the computer. The browser stores the selected file handle in IndexedDB so the app can try to reconnect to that file later; business records are not stored in IndexedDB or localStorage.
 
 ## Storage model
 
@@ -23,27 +23,28 @@ Recommended location:
 Documents\Avena Quotation System\avena-data.json
 ```
 
-The app does **not** remember the file handle in browser storage. After a browser refresh, app restart or PWA restart, select the same `avena-data.json` file again. This is intentional.
+The app remembers the selected file handle in IndexedDB. On startup, it attempts to reopen the file if the browser still grants permission. If permission is unavailable, use **Reconnect last file** on the start screen or choose **Open existing data file** and select the JSON file again. Clearing site data or browser storage removes the remembered handle, but does not remove the JSON data file.
 
 ## Included
 
 - Angular 22 standalone application
 - Offline PWA service worker and installable manifest
 - Direct local JSON-file storage through the File System Access API
-- No IndexedDB or localStorage for business records
+- IndexedDB stores the selected file handle only; business records stay in the JSON file
 - Product, supplier/mill, packaging, logistics, commission-agent and buyer records
 - PKR cost entry with automatic USD conversion and FX safety buffer
 - LOCAL, EXW, FCA, FOB, CFR, CNF (CFR cost basis), CIF, DAP and DDP calculations
 - DAP destination-delivery and DDP import-clearance, duty and tax costing
 - 20-foot/40-foot FCL and CBM/MT/minimum-basis LCL freight calculations
+- Logistics rates can be marked as including cargo insurance to prevent charging insurance twice
 - Product crop year and MOQ controls
 - PP, BOPP, non-woven, jute and master-bag packaging with private-label/OEM controls
 - Structured 100% Advance TT, TT, LC at Sight, Usance LC, CAD, D/P, D/A and Open Account terms
-- Payment tenor, financing, bank-charge and risk-buffer costing
+- Payment financing is calculated on the unpaid balance; bank charges and risk buffer are added separately
 - Stuffing location/date, seal number, VGM, ETD/ETA, POL/POD, transshipment and direct-vessel controls
 - Minimum, target and premium profit scenarios
 - Commission as invoice percentage, USD/MT or fixed/container
-- Container weight and volume planning checks
+- Container weight and volume estimates are informational only; verify actual loading and volume separately
 - Automatic warnings for missing/expired rates and below-break-even target prices
 - Saved quotation history with edit, duplicate, status and delete actions
 - Four-page Avena standard export quotation print/PDF view, matching the supplied company quotation format
@@ -52,7 +53,7 @@ The app does **not** remember the file handle in browser storage. After a browse
 - Editable per-quotation commercial controls, LC/shipment controls, documents and terms & conditions
 - AAF-EQ-#### export quotation numbering with revision control
 - Commercial quotation and proforma-invoice print/PDF view
-- Save-as JSON backup copies and CSV quotation register
+- CSV quotation register export
 - Netlify SPA configuration
 
 ## Browser requirement
@@ -132,14 +133,14 @@ After deployment, open the HTTPS Netlify URL in Chrome or Edge and select your l
 5. Open **Master Data → Logistics** and enter destination ports, charges, freight and validity.
 6. Create quotations, review the editable document controls, and resolve warnings before printing.
 7. Choose Quotation, Proforma Invoice, Sales Contract, Commercial Invoice or Packing List in the preview, then print/save the selected PDF.
-8. Use **Data File & Backups → Save backup copy** regularly.
+8. Make periodic copies of `avena-data.json` using File Explorer or another file backup tool. The app currently has no in-app JSON backup or restore function.
 
 ## Important limitations
 
-- The browser cannot silently access arbitrary computer files. You must choose the data file when the app starts/reloads.
+- The browser may reconnect to the remembered data file when permission is available. Otherwise, reconnect or select the file again from the start screen.
 - Moving, renaming or deleting the open file can cause a save to fail until it is reopened.
 - Different computers do not synchronize automatically.
-- The PWA may cache application code/assets in browser Cache Storage; no business records are intentionally stored in IndexedDB/localStorage.
+- The PWA may cache application code/assets in browser Cache Storage. IndexedDB stores the selected file handle; business records are kept in the selected JSON file.
 - Container payload and volume limits are planning values. Confirm carrier equipment, CSC plate and road limits.
 - Demo specifications and dimensions must be replaced with actual agreed values.
 
@@ -151,7 +152,7 @@ src/app/core/data/                     Starter/demo master data + standard quota
 src/app/core/services/local-file-data.service.ts  Direct file read/write
 src/app/core/services/app-store.service.ts        In-memory state + file persistence
 src/app/core/services/quotation-calculator.service.ts  Calculation engine
-src/app/features/                      Dashboard, quote wizard, history, print, master data, settings, backups
+src/app/features/                      Dashboard, quote wizard, history, print, master data, settings, data-file management
 public/                                PWA manifest and icons
 ngsw-config.json                       Offline app-cache configuration
 netlify.toml                           Netlify build + SPA redirect
@@ -160,7 +161,7 @@ netlify.toml                           Netlify build + SPA redirect
 ## v2.2 safety workflow
 
 - **Final = locked:** saving a quotation as Final freezes that revision. Use **Create Revision / New revision** for later changes.
-- **Automatic backups:** open **Data File & Backups**, choose a backup folder once per app session, and the app will create dated JSON backups before overwriting the main data file.
+- **Data file:** saves write directly to the selected JSON file. The app does not currently create automatic or manual JSON backup copies; copy the file outside the app for backup.
 - **Pre-PDF validation:** the quotation preview blocks Print / Save PDF when critical commercial/document checks fail.
 
 See `CHANGES-SAFETY-UPGRADES-v2.2.md` for details.

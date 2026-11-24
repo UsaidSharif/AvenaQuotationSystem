@@ -12,6 +12,7 @@ import { LocalFileDataService } from './local-file-data.service';
 import { createId, nowIso } from '../../shared/utils/ids';
 import { inferPaymentMethod } from '../../shared/utils/commercial-terms';
 import { deriveDocumentNumber } from '../../shared/utils/document-identifiers';
+import { QUOTATION_CALCULATION_VERSION, QuotationCalculatorService } from './quotation-calculator.service';
 
 function normalizeProduct(item: Product): Product {
   return {
@@ -67,6 +68,7 @@ function normalizeLogistics(item: LogisticsRate): LogisticsRate {
     destinationDeliveryUsd: item.destinationDeliveryUsd ?? 0,
     destinationCustomsClearanceUsd: item.destinationCustomsClearanceUsd ?? 0,
     destinationDutiesTaxesUsd: item.destinationDutiesTaxesUsd ?? 0,
+    freightIncludesInsurance: item.freightIncludesInsurance ?? false,
   };
 }
 
@@ -93,6 +95,7 @@ function sortByUpdatedAt<T extends { updatedAt: string }>(items: T[]): T[] {
 @Injectable({ providedIn: 'root' })
 export class AppStoreService {
   private readonly file = inject(LocalFileDataService);
+  private readonly calculator = inject(QuotationCalculatorService);
 
   readonly ready = signal(false);
   readonly initialized = signal(false);
@@ -209,6 +212,7 @@ export class AppStoreService {
     const shouldLock = value.document.documentStatus === 'Final';
     const record: QuotationRecord = {
       ...value,
+      calculationVersion: QUOTATION_CALCULATION_VERSION,
       isLocked: shouldLock,
       lockedAt: shouldLock ? (value.lockedAt || timestamp) : undefined,
       revisionRootId: value.revisionRootId || value.revisionOfId || value.id,
@@ -233,6 +237,33 @@ export class AppStoreService {
 
   findQuotation(id: string): QuotationRecord | undefined {
     return this.quotations().find(item => item.id === id);
+  }
+
+  needsQuotationRecalculation(quote: QuotationRecord): boolean {
+    return (quote.calculationVersion ?? 0) < QUOTATION_CALCULATION_VERSION;
+  }
+
+  async recalculateDraftQuotation(id: string): Promise<QuotationRecord> {
+    const quote = this.findQuotation(id);
+    if (!quote) throw new Error('Quotation could not be found.');
+    if (this.isQuotationLocked(quote)) {
+      throw new Error('Final quotations keep their saved calculation. Create a revision to use current calculation rules.');
+    }
+
+    const recalculated: QuotationRecord = {
+      ...quote,
+      calculation: this.calculator.calculate(quote.input, {
+        product: quote.snapshots.product,
+        supplier: quote.snapshots.supplier,
+        packaging: quote.snapshots.packaging,
+        logistics: normalizeLogistics(quote.snapshots.logistics),
+        agent: quote.snapshots.agent,
+        settings: this.settings(),
+      }),
+      calculationVersion: QUOTATION_CALCULATION_VERSION,
+    };
+    await this.saveQuotation(recalculated);
+    return this.findQuotation(id)!;
   }
 
   isQuotationLocked(quote: QuotationRecord): boolean {

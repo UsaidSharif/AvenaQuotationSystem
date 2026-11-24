@@ -1,6 +1,6 @@
 # Local File Storage
 
-This build intentionally does not persist business records in IndexedDB or localStorage.
+Business records are stored in the selected JSON file. IndexedDB is used only to remember the selected file handle so the app can try to reconnect on a later visit. Business records are not stored in IndexedDB or localStorage.
 
 ## Main data file
 
@@ -28,8 +28,8 @@ When you press a Save/Add/Delete/Status action, the in-memory data is updated an
 
 ## Reopening
 
-For security, browsers do not allow a web app to silently reopen a computer file after a restart without storing a handle in browser storage. This app does not store that handle, so simply choose the same data file again on startup.
+The app stores the selected file handle in IndexedDB and attempts to restore access when it starts. The browser may require the user to grant permission again. If automatic reconnection is unavailable, choose **Reconnect last file** or open the JSON file again. Clearing browser site data removes the remembered handle, not the JSON file itself.
 
 ## Backups
 
-Use **Data File & Backups → Save backup copy** to create dated JSON copies. The backup is a complete database and can later be restored into the main data file.
+The current app does not create JSON backup copies and does not include an in-app restore function. To back up the database, close or save the file and copy `avena-data.json` using File Explorer or another file backup tool. The **Save quotation CSV** action exports the quotation register only; it is not a full database backup.

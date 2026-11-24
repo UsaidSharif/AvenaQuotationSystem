@@ -29,6 +29,9 @@ export class QuotationPrintPage implements OnInit {
   readonly validationErrors = computed(() => this.validationIssues().filter(item => item.level === 'error'));
   readonly validationWarnings = computed(() => this.validationIssues().filter(item => item.level === 'warning'));
   readonly validationMessage = signal('');
+  readonly recalculating = signal(false);
+  readonly recalculationMessage = signal('');
+  readonly recalculationError = signal('');
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -38,6 +41,23 @@ export class QuotationPrintPage implements OnInit {
   setDocument(type: PrintableDocumentType): void {
     this.documentType.set(type);
     this.validationMessage.set('');
+  }
+
+  async recalculateSavedDraft(): Promise<void> {
+    const current = this.quote();
+    if (!current || this.store.isQuotationLocked(current) || this.recalculating()) return;
+    this.recalculating.set(true);
+    this.recalculationMessage.set('');
+    this.recalculationError.set('');
+    try {
+      const updated = await this.store.recalculateDraftQuotation(current.id);
+      this.quote.set(updated);
+      this.recalculationMessage.set('Draft recalculated with current rules and saved to the data file.');
+    } catch (error: unknown) {
+      this.recalculationError.set(error instanceof Error ? error.message : 'The Draft could not be recalculated.');
+    } finally {
+      this.recalculating.set(false);
+    }
   }
   print(): void {
     const errors = this.validationErrors();

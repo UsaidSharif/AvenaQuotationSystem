@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { PrintableDocumentType, QuotationRecord } from '../models/domain.models';
 import { isLcPayment } from '../../shared/utils/commercial-terms';
 import { documentDate, documentNumber, documentStatus } from '../../shared/utils/document-identifiers';
+import { QUOTATION_CALCULATION_VERSION } from './quotation-calculator.service';
 
 export type ValidationLevel = 'error' | 'warning';
 
@@ -61,6 +62,10 @@ export class QuotationValidationService {
     if (!record.quoteNumber?.trim()) add('quote-number', 'error', 'Quotation number is missing.');
     if (!document.revisionNo?.trim()) add('revision-number', 'error', 'Revision number is missing.');
     if (!record.input.quoteDate) add('quote-date', 'error', 'Quotation date is missing.');
+    if ((record.calculationVersion ?? 0) < QUOTATION_CALCULATION_VERSION
+      && !record.isLocked && document.documentStatus !== 'Final') {
+      add('calculation-version', 'error', 'This Draft uses older calculation rules. Recalculate it before printing.');
+    }
 
     if (!buyer.companyName?.trim()) add('buyer-company', 'error', 'Buyer company name is missing.');
     if (!buyer.country?.trim()) add('buyer-country', 'error', 'Buyer country is missing.');
@@ -79,6 +84,16 @@ export class QuotationValidationService {
     if (calc.loading.totalNetMt <= 0) add('quantity', 'error', 'Shipment quantity must be greater than zero.');
     if (calc.quotedPriceUsdPerMt <= 0) add('selling-price', 'error', 'Selling price is zero.');
     if (calc.invoiceTotalUsd <= 0) add('invoice-total', 'error', 'Total contract value is zero.');
+    if ((record.calculationVersion ?? 0) >= QUOTATION_CALCULATION_VERSION
+      && record.input.profitMethod === 'margin'
+      && calc.actualGrossMarginPercent + 0.000001 < selectedProfitPercent) {
+      add('below-target-margin', 'error', 'Rounded selling price is below the selected target margin. Increase the price or adjust the target.');
+    }
+    if ((record.calculationVersion ?? 0) >= QUOTATION_CALCULATION_VERSION
+      && record.input.profitMethod === 'markup'
+      && calc.netProfitUsd + 0.000001 < calc.costs.selectedTermCostUsd * selectedProfitPercent / 100) {
+      add('below-target-markup', 'error', 'Rounded selling price is below the selected target markup. Increase the price or adjust the target.');
+    }
     if (!record.input.paymentTerms?.trim()) add('payment-terms', 'error', 'Payment terms are missing.');
     if (!record.input.paymentMethod) add('payment-method', 'error', 'Select a structured payment method.');
     const paymentTotal = Number(record.input.advancePercent || 0) + Number(record.input.balancePercent || 0);
@@ -117,7 +132,9 @@ export class QuotationValidationService {
     if (['CFR', 'CNF', 'CIF', 'DAP', 'DDP'].includes(term) && calc.costs.freightUsd <= 0) {
       add('freight', 'error', 'Freight is zero for a CFR/CNF/CIF/DAP/DDP quotation.');
     }
-    if (term === 'CIF' && calc.costs.fixedInsuranceUsd + calc.costs.variableInsuranceUsd <= 0) {
+    if (term === 'CIF'
+      && calc.costs.fixedInsuranceUsd + calc.costs.variableInsuranceUsd <= 0
+      && !(logistics.freightIncludesInsurance && calc.costs.freightUsd > 0)) {
       add('insurance', 'error', 'Insurance is zero for a CIF quotation.');
     }
     if ((term === 'DAP' || term === 'DDP') && calc.costs.destinationDeliveryUsd <= 0) {
@@ -140,8 +157,6 @@ export class QuotationValidationService {
       && selectedProfitPercent + commissionRate >= 100) {
       add('profit-commission-rate', 'error', 'Margin plus invoice commission must be below 100%.');
     }
-    if (!calc.loading.withinLimits) add('container-load', 'error', 'Planned cargo exceeds the container weight or volume planning limit.');
-
     if (this.isExpired(record.snapshots.supplier.validTo, record.input.quoteDate)) {
       add('supplier-expired', 'error', 'Supplier price validity has expired for the quotation date.');
     }
@@ -203,8 +218,6 @@ export class QuotationValidationService {
     if (!product.origin?.trim()) add('product-origin', 'error', 'Product origin is missing.');
     if (record.input.tradeTerm !== 'LOCAL' && !product.hsCode?.trim()) add('hs-code', 'error', 'HS code is missing.');
     if (calc.loading.totalNetMt <= 0) add('quantity', 'error', 'Shipment quantity must be greater than zero.');
-    if (!calc.loading.withinLimits) add('container-load', 'error', 'Planned cargo exceeds the container weight or volume planning limit.');
-
     if (type !== 'packing-list') {
       if (calc.quotedPriceUsdPerMt <= 0) add('selling-price', 'error', 'Selling price is zero.');
       if (calc.invoiceTotalUsd <= 0) add('invoice-total', 'error', 'Total contract / invoice value is zero.');
